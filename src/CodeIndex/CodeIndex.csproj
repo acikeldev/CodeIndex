@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- NuGet global tool -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>codeindex</ToolCommandName>
+    <PackageId>CodeIndex</PackageId>
+    <Version>0.0.0-dev</Version>
+    <Authors>acikeldev</Authors>
+    <Description>A fast, token-efficient MCP server that indexes C# codebases using Roslyn and exposes symbol search, reference finding, and type navigation tools to LLM agents.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/acikeldev/CodeIndex</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/acikeldev/CodeIndex</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>mcp;roslyn;csharp;llm;ai;code-navigation</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.*" />
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.*" />
+    <PackageReference Include="MessagePack" Version="3.*" />
+    <PackageReference Include="ModelContextProtocol" Version="0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
