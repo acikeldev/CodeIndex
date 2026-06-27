@@ -20,4 +20,13 @@ public interface IFileSystem
 
     /// <summary>Returns the last write time (UTC) of the file at <paramref name="path"/>.</summary>
     DateTime GetLastWriteTimeUtc(string path);
+
+    /// <summary>Reads all bytes from <paramref name="path"/>.</summary>
+    byte[] ReadAllBytes(string path);
+
+    /// <summary>Writes <paramref name="bytes"/> to <paramref name="path"/>, overwriting any existing file.</summary>
+    void WriteAllBytes(string path, byte[] bytes);
+
+    /// <summary>Creates <paramref name="path"/> and any missing parent directories.</summary>
+    void EnsureDirectoryExists(string path);
 }

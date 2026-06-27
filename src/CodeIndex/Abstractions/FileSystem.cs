@@ -23,4 +23,13 @@ public sealed class FileSystem : IFileSystem
 
     public DateTime GetLastWriteTimeUtc(string path)
         => File.GetLastWriteTimeUtc(path);
+
+    public byte[] ReadAllBytes(string path)
+        => File.ReadAllBytes(path);
+
+    public void WriteAllBytes(string path, byte[] bytes)
+        => File.WriteAllBytes(path, bytes);
+
+    public void EnsureDirectoryExists(string path)
+        => Directory.CreateDirectory(path);
 }

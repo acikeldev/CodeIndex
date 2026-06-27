@@ -372,3 +372,81 @@ public sealed class CodeIndexStoreTests
         _fs.GetLastWriteTimeUtc(csFile).Returns(fileTime);
     }
 }
+
+public sealed class CodeIndexStoreCacheTests
+{
+    private readonly IFileSystem _fs = Substitute.For<IFileSystem>();
+    private readonly ICodeIndexCache _cache = Substitute.For<ICodeIndexCache>();
+    private static readonly DateTime T0 = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    private CodeIndexStore MakeStore() => new(_fs, _cache);
+
+    [Fact]
+    public void Rebuild_WithCache_LoadsFromCacheOnFirstRebuild()
+    {
+        ProjectIndex cachedProject = new()
+        {
+            Name = "App",
+            Directory = @"C:\Repo\App",
+            ProjectFilePath = @"C:\Repo\App\App.csproj",
+            SourceFiles = [],
+        };
+        _cache.TryLoad().Returns([cachedProject]);
+
+        // No solution files on disk — cache is the only source
+        _fs.EnumerateFiles(@"C:\Repo", "*.*", SearchOption.AllDirectories).Returns([]);
+
+        CodeIndexStore store = MakeStore();
+        store.Rebuild(@"C:\Repo");
+
+        // Cache is consulted on first rebuild (store starts empty)
+        _cache.Received(1).TryLoad();
+    }
+
+    [Fact]
+    public void Rebuild_WithCache_SavesAfterRebuild()
+    {
+        _cache.TryLoad().Returns((IReadOnlyList<ProjectIndex>?)null);
+        _fs.EnumerateFiles(@"C:\Repo", "*.*", SearchOption.AllDirectories).Returns([]);
+
+        CodeIndexStore store = MakeStore();
+        store.Rebuild(@"C:\Repo");
+
+        _cache.Received(1).Save(Arg.Any<IReadOnlyList<ProjectIndex>>());
+    }
+
+    [Fact]
+    public void Rebuild_WithCache_SecondRebuildSkipsCacheLoad()
+    {
+        _cache.TryLoad().Returns((IReadOnlyList<ProjectIndex>?)null);
+        _fs.EnumerateFiles(@"C:\Repo", "*.*", SearchOption.AllDirectories).Returns([]);
+
+        CodeIndexStore store = MakeStore();
+        store.Rebuild(@"C:\Repo");
+        store.Rebuild(@"C:\Repo");
+
+        // TryLoad called only on first rebuild (store is non-empty after first)
+        _cache.Received(1).TryLoad();
+    }
+
+    [Fact]
+    public void Rebuild_WithoutCache_DoesNotThrow()
+    {
+        _fs.EnumerateFiles(@"C:\Repo", "*.*", SearchOption.AllDirectories).Returns([]);
+
+        CodeIndexStore store = new(_fs);
+        store.Invoking(s => s.Rebuild(@"C:\Repo")).Should().NotThrow();
+    }
+
+    [Fact]
+    public void Rebuild_CacheReturnsNull_ProceedsWithEmptyBaseline()
+    {
+        _cache.TryLoad().Returns((IReadOnlyList<ProjectIndex>?)null);
+        _fs.EnumerateFiles(@"C:\Repo", "*.*", SearchOption.AllDirectories).Returns([]);
+
+        CodeIndexStore store = MakeStore();
+        store.Rebuild(@"C:\Repo");
+
+        store.GetProjects().Should().BeEmpty();
+    }
+}
