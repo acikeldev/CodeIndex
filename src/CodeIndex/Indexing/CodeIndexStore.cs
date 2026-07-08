@@ -28,13 +28,22 @@ public sealed class CodeIndexStore : ICodeIndexStore
     }
 
     /// <inheritdoc/>
-    public void Rebuild(string repoRoot)
+    public void Rebuild(string repoRoot, bool fullRebuild = false, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<string> projectFiles = _solutionScanner.FindProjectFiles(repoRoot);
 
-        // Seed the per-file delta table from the disk cache on the very first rebuild.
-        if (!_cacheSeeded && _cache is not null)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // On a full rebuild (e.g. branch switch) discard the cache so stale entries
+        // from the old branch cannot survive into the new index.
+        if (fullRebuild)
         {
+            _projects = [];
+            _cacheSeeded = true;
+        }
+        else if (!_cacheSeeded && _cache is not null)
+        {
+            // Seed the per-file delta table from the disk cache on the very first rebuild.
             _projects = _cache.TryLoad()?.ToList() ?? [];
             _cacheSeeded = true;
         }
@@ -48,6 +57,7 @@ public sealed class CodeIndexStore : ICodeIndexStore
 
         foreach (string projectFile in projectFiles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ProjectIndex project = _projectScanner.Scan(projectFile, cachedFiles);
             rebuilt.Add(project);
         }

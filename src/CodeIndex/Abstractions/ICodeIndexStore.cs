@@ -10,8 +10,10 @@ public interface ICodeIndexStore
     /// <summary>
     /// Rebuilds the index for all projects discovered under <paramref name="repoRoot"/>.
     /// Only files whose <see cref="DateTime"/> on disk differs from the cached value are re-parsed.
+    /// Pass <paramref name="fullRebuild"/> = <c>true</c> to discard the cache and re-parse every file
+    /// (required after a branch switch where timestamps are unreliable).
     /// </summary>
-    void Rebuild(string repoRoot);
+    void Rebuild(string repoRoot, bool fullRebuild = false, CancellationToken cancellationToken = default);
 
     /// <summary>Returns every indexed project.</summary>
     IReadOnlyList<ProjectIndex> GetProjects();

@@ -5,6 +5,7 @@ using CodeIndex.Indexing;
 using CodeIndex.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 [ExcludeFromCodeCoverage]
 internal static partial class Program
@@ -26,6 +27,12 @@ internal static partial class Program
             store.Rebuild(repoRoot);
             return store;
         });
+
+        builder.Services.AddSingleton<RepositoryWatcher>(sp => new RepositoryWatcher(
+            sp.GetRequiredService<ICodeIndexStore>(),
+            repoRoot,
+            sp.GetRequiredService<ILogger<RepositoryWatcher>>()));
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<RepositoryWatcher>());
 
         builder.Services
             .AddMcpServer()
