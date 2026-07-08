@@ -484,3 +484,5 @@ $RECYCLE.BIN/
 # CodeIndex specific
 .codeindex/
 Benchmark/Results/
+coverage-results/
+*.lcov
