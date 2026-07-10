@@ -11,6 +11,7 @@
          (compiled into CodeIndex.dll) plus [GeneratedCode]/[ExcludeFromCodeCoverage] members. -->
     <Exclude>[CodeIndex]MessagePack.GeneratedMessagePackResolver*</Exclude>
     <ExcludeByAttribute>GeneratedCodeAttribute;ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+    <ExcludeByFile>**/*.g.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>
