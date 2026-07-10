@@ -8,7 +8,7 @@ namespace CodeIndex.Tests.Internal;
 /// </summary>
 public class DidYouMeanTests
 {
-    private static readonly string[] Names = ["StudyInfo", "ExperimentalFeature", "ExperimentalFeaturesService", "OrgSetting"];
+    private static readonly string[] Names = ["OrderInfo", "PrimaryFeature", "PrimaryFeaturesService", "OrgSetting"];
 
     [Fact]
     public void Nearest_EmptyQuery_ReturnsEmpty() =>
@@ -20,17 +20,17 @@ public class DidYouMeanTests
 
     [Fact]
     public void Nearest_Prefix_CandidateStartsWithQuery() =>
-        NameSuggester.Nearest("Study", Names).Should().Contain("StudyInfo");
+        NameSuggester.Nearest("Order", Names).Should().Contain("OrderInfo");
 
     [Fact]
     public void Nearest_Prefix_QueryStartsWithCandidate() =>
         // query longer than candidate; candidate is a prefix of the query
-        NameSuggester.Nearest("StudyInfoExtra", ["StudyInfo"]).Should().Contain("StudyInfo");
+        NameSuggester.Nearest("OrderInfoExtra", ["OrderInfo"]).Should().Contain("OrderInfo");
 
     [Fact]
     public void Nearest_Substring_CandidateContainsQuery() =>
-        // "feat" is neither a prefix nor an exact match, but is contained in "experimentalfeature"
-        NameSuggester.Nearest("Feat", Names).Should().Contain("ExperimentalFeature");
+        // "feat" is neither a prefix nor an exact match, but is contained in "primaryfeature"
+        NameSuggester.Nearest("Feat", Names).Should().Contain("PrimaryFeature");
 
     [Fact]
     public void Nearest_Substring_QueryContainsCandidate() =>
@@ -39,12 +39,12 @@ public class DidYouMeanTests
 
     [Fact]
     public void Nearest_SingularPluralTypo() =>
-        NameSuggester.Nearest("ExperimentalFeatures", Names).Should().Contain("ExperimentalFeature");
+        NameSuggester.Nearest("PrimaryFeatures", Names).Should().Contain("PrimaryFeature");
 
     [Fact]
     public void Nearest_EditDistanceTypo_Transposition() =>
-        // "StduyInfo" is a transposition of "StudyInfo": edit distance within threshold, not a substring
-        NameSuggester.Nearest("StduyInfo", Names).Should().Contain("StudyInfo");
+        // "OredrInfo" is a transposition of "OrderInfo": edit distance within threshold, not a substring
+        NameSuggester.Nearest("OredrInfo", Names).Should().Contain("OrderInfo");
 
     [Fact]
     public void Nearest_ShortSubstringGate_TwoCharQueryNotTreatedAsSubstring() =>
@@ -62,42 +62,42 @@ public class DidYouMeanTests
 
     [Fact]
     public void Nearest_SkipsNullAndEmptyCandidates() =>
-        NameSuggester.Nearest("Study", [null!, "", "StudyInfo"]).Should().ContainSingle().Which.Should().Be("StudyInfo");
+        NameSuggester.Nearest("Order", [null!, "", "OrderInfo"]).Should().ContainSingle().Which.Should().Be("OrderInfo");
 
     [Fact]
     public void Nearest_DeduplicatesRepeatedCandidate()
     {
-        IReadOnlyList<string> result = NameSuggester.Nearest("Study", ["StudyInfo", "StudyInfo"]);
-        result.Should().ContainSingle().Which.Should().Be("StudyInfo");
+        IReadOnlyList<string> result = NameSuggester.Nearest("Order", ["OrderInfo", "OrderInfo"]);
+        result.Should().ContainSingle().Which.Should().Be("OrderInfo");
     }
 
     [Fact]
     public void Nearest_ExactRanksAheadOfPrefix()
     {
-        IReadOnlyList<string> result = NameSuggester.Nearest("Study", ["StudyInfo", "Study"]);
-        result[0].Should().Be("Study");
+        IReadOnlyList<string> result = NameSuggester.Nearest("Order", ["OrderInfo", "Order"]);
+        result[0].Should().Be("Order");
     }
 
     [Fact]
     public void Nearest_PrefixRanksAheadOfFuzzy()
     {
         // "Studx" is a prefix-tier match (query prefixes "Studxenon"? no) — use an actual prefix vs a fuzzy candidate
-        IReadOnlyList<string> result = NameSuggester.Nearest("Study", ["StudyInfo", "Stydy"]);
-        result[0].Should().Be("StudyInfo"); // prefix tier beats the fuzzy "Stydy"
-        result.Should().Contain("Stydy");
+        IReadOnlyList<string> result = NameSuggester.Nearest("Order", ["OrderInfo", "Ordar"]);
+        result[0].Should().Be("OrderInfo"); // prefix tier beats the fuzzy "Ordar"
+        result.Should().Contain("Ordar");
     }
 
     [Fact]
     public void Nearest_PrefixTie_OrdersByShorterLengthDelta()
     {
-        IReadOnlyList<string> result = NameSuggester.Nearest("Study", ["StudyInfo", "StudyX"]);
-        result[0].Should().Be("StudyX"); // smaller length delta ranks first
+        IReadOnlyList<string> result = NameSuggester.Nearest("Order", ["OrderInfo", "OrderX"]);
+        result[0].Should().Be("OrderX"); // smaller length delta ranks first
     }
 
     [Fact]
     public void Nearest_LongQuery_UsesWiderEditThreshold() =>
         // length > 8 → threshold 3; two substitutions comfortably qualify as fuzzy
-        NameSuggester.Nearest("ExperXmentZl", ["Experimental"]).Should().Contain("Experimental");
+        NameSuggester.Nearest("ConfXgurablZ", ["Configurable"]).Should().Contain("Configurable");
 
     [Fact]
     public void Nearest_HonorsMaxAndIsDeterministic()
@@ -120,9 +120,9 @@ public class DidYouMeanTests
     [Fact]
     public void DidYouMean_FormatsSuggestions()
     {
-        string result = NameSuggester.DidYouMean("Study", Names);
+        string result = NameSuggester.DidYouMean("Order", Names);
         result.Should().StartWith("\nDid you mean: ");
-        result.Should().Contain("StudyInfo");
+        result.Should().Contain("OrderInfo");
         result.Should().EndWith("?");
     }
 

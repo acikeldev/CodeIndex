@@ -8,9 +8,9 @@ public sealed class TypeInfo
     [Key(0)] public required string Name { get; init; }
     [Key(1)] public required SymbolKind Kind { get; init; }
     [Key(2)] public required string TypeKeyword { get; init; }
-    // Individual base-type/interface names, each element one entry (generic args kept intact, e.g. "IRepository<Study, int>").
+    // Individual base-type/interface names, each element one entry (generic args kept intact, e.g. "IRepository<TItem, int>").
     // Stored as a list (not a comma-joined string) so derived-type matching is exact instead of substring — a base
-    // "IStudyRepository" must not match a query for "IStudy". Null/empty when the type has no base list.
+    // "IOrderRepository" must not match a query for "IOrder". Null/empty when the type has no base list.
     [Key(3)] public List<string>? BaseTypes { get; init; }
     [Key(4)] public required int StartLine { get; init; }
     [Key(5)] public required int LineCount { get; init; }
