@@ -11,6 +11,9 @@ Copilot, …). No cloud, no embeddings — everything runs on your machine.
 dotnet tool install -g CodeIndex
 ```
 
+Published to [NuGet.org](https://www.nuget.org/packages/CodeIndex) on each tagged release (via the `Release`
+GitHub Actions workflow). Requires the .NET 10 SDK.
+
 Point your MCP client at the `codeindex` command (typically via an `.mcp.json` in your repo). The server
 auto-detects the repo root from the nearest `.git`; override with `--root <path>` or the `CODEINDEX_ROOT`
 environment variable.

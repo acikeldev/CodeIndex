@@ -1,0 +1,45 @@
+name: Release
+
+# Publishes the global tool to NuGet.org when a version tag is pushed (e.g. `v0.1.0`),
+# or on a manual dispatch. Requires a NUGET_API_KEY repository secret.
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version, e.g. 0.1.0'
+        required: true
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            '${{ github.event.inputs.version }}'
+          } else {
+            '${{ github.ref_name }}'.TrimStart('v')
+          }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build + test (gate the release)
+        run: |
+          dotnet restore CodeIndex.slnx
+          dotnet build CodeIndex.slnx -c Release --no-restore
+          dotnet test CodeIndex.slnx -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/CodeIndex/CodeIndex.csproj -c Release -p:Version=${{ steps.ver.outputs.version }} -o ./nupkg
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push "./nupkg/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

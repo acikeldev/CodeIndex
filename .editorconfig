@@ -13,6 +13,8 @@ indent_size = 2
 
 [*.{yml,yaml}]
 indent_size = 2
+# LF for CI YAML — GitHub Actions convention, and CRLF would corrupt bash run-block scripts.
+end_of_line = lf
 
 [*.md]
 trim_trailing_whitespace = false
