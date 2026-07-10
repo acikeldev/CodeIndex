@@ -3,19 +3,20 @@ using CodeIndex.Models;
 namespace CodeIndex.Abstractions;
 
 /// <summary>
-/// Persists and restores a list of indexed projects to/from a binary cache file.
+/// The C#-segment on-disk index cache (independently versioned MessagePack). Save is best-effort and never
+/// throws; Load returns <see langword="null"/> on a missing / corrupt / schema-mismatched file.
 /// </summary>
 public interface ICodeIndexCache
 {
-    /// <summary>
-    /// Serializes <paramref name="projects"/> to the cache file, replacing any
-    /// existing cache. Silently does nothing on I/O failure.
-    /// </summary>
-    void Save(IReadOnlyList<ProjectIndex> projects);
+    /// <summary>Cache schema version this build reads/writes; encoded into the cache filename.</summary>
+    int CurrentSchemaVersion { get; }
 
-    /// <summary>
-    /// Attempts to load the cache. Returns the cached projects on success, or
-    /// <see langword="null"/> if the cache does not exist or is corrupt.
-    /// </summary>
-    IReadOnlyList<ProjectIndex>? TryLoad();
+    /// <summary>The versioned cache file path inside <paramref name="cacheDirectory"/>.</summary>
+    string GetCachePath(string cacheDirectory);
+
+    /// <summary>Loads the cache, or <see langword="null"/> if absent / unreadable / a different schema.</summary>
+    CacheData? Load(string cachePath);
+
+    /// <summary>Atomically persists <paramref name="data"/>. Best-effort — never throws.</summary>
+    void Save(string cachePath, CacheData data);
 }

@@ -1,8 +1,5 @@
 namespace CodeIndex.Models;
 
-/// <summary>
-/// Classifies a C# symbol for filtering and display purposes.
-/// </summary>
 public enum SymbolKind
 {
     Class,
@@ -11,11 +8,23 @@ public enum SymbolKind
     SealedClass,
     Interface,
     Enum,
-    Struct,
-    Record,
     Method,
     Property,
     Field,
     Constructor,
     Event,
+    // Appended (never reorder — MessagePack serializes enums by ordinal value).
+    Struct,
+    Record,
+    RecordStruct,
+    // TypeScript (language-neutral additions).
+    Function,
+    Variable,
+    TypeAlias,
+    // SCSS.
+    ScssSelector,
+    ScssMixin,
+    ScssFunction,
+    ScssVariable,
+    ScssPlaceholder
 }

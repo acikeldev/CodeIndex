@@ -5,40 +5,25 @@ namespace CodeIndex.Tests.Models;
 public sealed class ProjectIndexTests
 {
     [Fact]
-    public void ProjectIndex_Properties_RoundTrip()
+    public void ProjectIndex_HoldsNameDirAndRelativeSourceFiles()
     {
-        SourceFileIndex file = new()
+        ProjectIndex p = new()
         {
-            FileName = "Foo.cs",
-            FullPath = @"C:\Repo\Foo.cs",
-            Namespace = "App",
-            IndexedAtUtc = DateTime.UtcNow,
+            Name = "App",
+            ProjectDirPath = @"C:\Repo\App",
+            SourceFiles = ["Services/UserService.cs", "Program.cs"],
         };
 
-        ProjectIndex project = new()
-        {
-            Name = "MyApp",
-            Directory = @"C:\Repo",
-            ProjectFilePath = @"C:\Repo\MyApp.csproj",
-            SourceFiles = [file],
-        };
-
-        project.Name.Should().Be("MyApp");
-        project.Directory.Should().Be(@"C:\Repo");
-        project.ProjectFilePath.Should().Be(@"C:\Repo\MyApp.csproj");
-        project.SourceFiles.Should().ContainSingle().Which.FileName.Should().Be("Foo.cs");
+        p.Name.Should().Be("App");
+        p.ProjectDirPath.Should().Be(@"C:\Repo\App");
+        p.SourceFiles.Should().BeEquivalentTo(["Services/UserService.cs", "Program.cs"]);
     }
 
     [Fact]
-    public void ProjectIndex_DefaultSourceFiles_IsEmpty()
+    public void ProjectIndex_SourceFiles_DefaultsToEmpty()
     {
-        ProjectIndex project = new()
-        {
-            Name = "MyApp",
-            Directory = @"C:\Repo",
-            ProjectFilePath = @"C:\Repo\MyApp.csproj",
-        };
+        ProjectIndex p = new() { Name = "App", ProjectDirPath = @"C:\Repo\App" };
 
-        project.SourceFiles.Should().BeEmpty();
+        p.SourceFiles.Should().BeEmpty();
     }
 }

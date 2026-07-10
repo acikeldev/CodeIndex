@@ -6,6 +6,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
+
+    <!-- Coverage: measure only hand-written code. Drop MessagePack's source-generated formatters
+         (compiled into CodeIndex.dll) plus [GeneratedCode]/[ExcludeFromCodeCoverage] members. -->
+    <Exclude>[CodeIndex]MessagePack.GeneratedMessagePackResolver*</Exclude>
+    <ExcludeByAttribute>GeneratedCodeAttribute;ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +27,7 @@
     </PackageReference>
     <PackageReference Include="NSubstitute" Version="5.*" />
     <PackageReference Include="FluentAssertions" Version="6.*" />
+    <PackageReference Include="MessagePack" Version="3.*" />
   </ItemGroup>
 
   <ItemGroup>

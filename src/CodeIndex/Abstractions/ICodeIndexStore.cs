@@ -3,39 +3,47 @@ using CodeIndex.Models;
 namespace CodeIndex.Abstractions;
 
 /// <summary>
-/// Read/write interface for the in-memory code index.
+/// The queryable + rebuildable in-memory code index behind every MCP tool. Query members are lock-free reads
+/// over an immutable snapshot; the mutation members (Build / Rebuild / Refresh*) publish new snapshots atomically.
 /// </summary>
 public interface ICodeIndexStore
 {
-    /// <summary>
-    /// Rebuilds the index for all projects discovered under <paramref name="repoRoot"/>.
-    /// Only files whose <see cref="DateTime"/> on disk differs from the cached value are re-parsed.
-    /// Pass <paramref name="fullRebuild"/> = <c>true</c> to discard the cache and re-parse every file
-    /// (required after a branch switch where timestamps are unreliable).
-    /// </summary>
-    void Rebuild(string repoRoot, bool fullRebuild = false, CancellationToken cancellationToken = default);
+    // ── diagnostics / counts ────────────────────────────────────────────────
+    string? RepoRoot { get; }
+    string CacheDirectory { get; }
+    BuildInfo LastBuild { get; }
+    int ProjectCount { get; }
+    int TsProjectCount { get; }
+    int SourceFileCount { get; }
+    int TypeCount { get; }
+    int MemberCount { get; }
+    IReadOnlyList<SourceFileIndex> AllSourceFiles { get; }
 
-    /// <summary>Returns every indexed project.</summary>
-    IReadOnlyList<ProjectIndex> GetProjects();
+    // ── query ────────────────────────────────────────────────────────────────
+    List<SymbolSearchResult> SearchSymbol(string query, string? kindFilter, string? projectFilter);
+    SourceFileIndex? GetFileOutline(string fileQuery);
+    string? ResolveSourceFilePath(string fileQuery);
+    bool IsIndexedPath(string fullPath);
+    List<ProjectIndex> ListProjects();
+    ProjectIndex? GetProject(string name);
+    List<(TypeInfo Type, SourceFileIndex File)> FindTypes(string name);
+    List<(TypeInfo Type, SourceFileIndex File)> GetDerivedTypes(string name);
+    BareNameResolution ResolveBareName(string fileQuery, string identifier);
+    string GetRepoMap(IReadOnlyList<string> focus, int tokenBudget, string? project);
+    string SearchStructural(string pattern, string? project, int max, int perFileCap);
+    string CheckDanglingReferences(string fileQuery);
+    string GetCallHierarchy(string method, string direction, string? project, int max, int perFileCap, string language);
+    ProjectDependencyInfo? GetProjectDependencyInfo(string name);
+    IReadOnlyDictionary<string, string> ProjectDirsByName();
+    IEnumerable<string> FileNames();
+    IEnumerable<string> ProjectNames();
+    IEnumerable<string> TypeNames();
+    IEnumerable<string> SymbolNames(string? projectFilter);
 
-    /// <summary>Returns every indexed source file across all projects.</summary>
-    IReadOnlyList<SourceFileIndex> GetFiles();
-
-    /// <summary>
-    /// Returns all types whose <see cref="TypeInfo.Name"/> contains <paramref name="name"/>
-    /// (case-insensitive), optionally limited to one <paramref name="kind"/>.
-    /// </summary>
-    IReadOnlyList<TypeInfo> SearchTypes(string name, SymbolKind? kind = null);
-
-    /// <summary>
-    /// Returns all members whose <see cref="MemberInfo.Name"/> contains <paramref name="name"/>
-    /// (case-insensitive), optionally limited to one <paramref name="kind"/>.
-    /// </summary>
-    IReadOnlyList<MemberInfo> SearchMembers(string name, SymbolKind? kind = null);
-
-    /// <summary>
-    /// Returns all source files whose <see cref="SourceFileIndex.FullPath"/> contains
-    /// <paramref name="pathFragment"/> (case-insensitive).
-    /// </summary>
-    IReadOnlyList<SourceFileIndex> SearchFiles(string pathFragment);
+    // ── mutation (composition root + watcher) ─────────────────────────────────
+    void Build(string repoRoot);
+    bool LoadCachedSnapshot(string repoRoot);
+    void Rebuild(string repoRoot, bool fullRebuild, CancellationToken cancellationToken);
+    Task RefreshAsync(string repoRoot, bool fullRebuild, CancellationToken cancellationToken);
+    Task RefreshTypeScriptAsync(string repoRoot, bool fullRebuild, CancellationToken cancellationToken);
 }

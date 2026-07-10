@@ -34,3 +34,8 @@ dotnet_diagnostic.IDE0008.severity = warning
 
 # Require braces
 dotnet_diagnostic.IDE0011.severity = warning
+
+# MessagePack init-with-initializer (MsgPack017): safe here. Every [Key] is always serialized (full-object
+# cache writes) and any model shape change bumps the cache schema version (older caches are discarded and
+# rebuilt, never partially deserialized), so a missing key can never silently reset a collection default.
+dotnet_diagnostic.MsgPack017.severity = none

@@ -1,22 +1,24 @@
+using MessagePack;
+
 namespace CodeIndex.Models;
 
-/// <summary>
-/// Index entry for a single C# source file.
-/// </summary>
+[MessagePackObject]
 public sealed class SourceFileIndex
 {
-    /// <summary>File name without directory (e.g. "UserService.cs").</summary>
-    public required string FileName { get; init; }
+    [Key(0)] public required string FileName { get; init; }
+    [Key(1)] public required string SourceFilePath { get; init; }
+    [Key(2)] public required string ProjectName { get; init; }
+    [Key(3)] public string? Namespace { get; init; }
+    // init (not set): a published snapshot's model graph must never be reassigned/mutated — the lock-free readers
+    // depend on it. MessagePack populates init setters during deserialization.
+    [Key(4)] public List<TypeInfo> Types { get; init; } = [];
 
-    /// <summary>Absolute path to the file.</summary>
-    public required string FullPath { get; init; }
+    // For resolve_bare_name: what this file imports. Usings = plain `using X;` namespaces (incl. global usings);
+    // UsingAliases = `using Alias = Fully.Qualified.Type;` (alias -> target). Captured syntactically by the parser.
+    [Key(5)] public List<string> Usings { get; init; } = [];
+    [Key(6)] public Dictionary<string, string> UsingAliases { get; init; } = [];
 
-    /// <summary>Primary namespace declared in this file, or empty string if none.</summary>
-    public required string Namespace { get; init; }
-
-    /// <summary>All types declared in this file.</summary>
-    public IReadOnlyList<TypeInfo> Types { get; init; } = [];
-
-    /// <summary>UTC timestamp of the file when it was last indexed.</summary>
-    public required DateTime IndexedAtUtc { get; init; }
+    // Which language this file was parsed from. Default CSharp (=0) so old v4 cache rows — which only ever
+    // hold C# files — deserialize correctly with NO cache-schema bump. Lets C#-only readers scope out TS/SCSS.
+    [Key(7)] public Language Language { get; init; } = Language.CSharp;
 }
