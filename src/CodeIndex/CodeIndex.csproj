@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CodeIndex.Tests" />
+    <InternalsVisibleTo Include="CodeIndex.Benchmarks" />
   </ItemGroup>
 
 </Project>

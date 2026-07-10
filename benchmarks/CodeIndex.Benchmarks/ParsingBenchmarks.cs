@@ -1,5 +1,7 @@
+using System.Text;
 using BenchmarkDotNet.Attributes;
 using CodeIndex.Benchmarks.Infrastructure;
+using CodeIndex.Models;
 using CodeIndex.Parsing;
 
 namespace CodeIndex.Benchmarks;
@@ -8,7 +10,7 @@ namespace CodeIndex.Benchmarks;
 /// Measures SourceFileParser.Parse() in isolation — the Roslyn SyntaxTree
 /// construction and member extraction for a single C# file.
 ///
-/// Varying FileSize controls the number of types and members per file,
+/// Varying TypeCount controls the number of types and members per file,
 /// which is the primary driver of Roslyn parsing cost.
 /// I/O is eliminated via InMemoryFileSystem.
 /// </summary>
@@ -18,6 +20,8 @@ namespace CodeIndex.Benchmarks;
 [MaxIterationCount(100)]
 public class ParsingBenchmarks
 {
+    private const string ProjectName = "BenchApp";
+
     private InMemoryFileSystem _fs = null!;
     private SourceFileParser _parser = null!;
 
@@ -36,11 +40,10 @@ public class ParsingBenchmarks
         _fs = new InMemoryFileSystem();
         _parser = new SourceFileParser(_fs);
 
-        Random rng = new(42);
         _filePath = @"C:\Repo\Bench.cs";
 
         // Generate a file with exactly TypeCount types, each with ~5 props + ~6 methods.
-        System.Text.StringBuilder sb = new();
+        StringBuilder sb = new();
         sb.AppendLine("namespace BenchApp;");
         sb.AppendLine();
         for (int i = 0; i < TypeCount; i++)
@@ -48,9 +51,15 @@ public class ParsingBenchmarks
             sb.AppendLine($"public class BenchType{i} : IDisposable");
             sb.AppendLine("{");
             for (int p = 0; p < 5; p++)
+            {
                 sb.AppendLine($"    public string Prop{p} {{ get; set; }} = string.Empty;");
+            }
+
             for (int m = 0; m < 6; m++)
+            {
                 sb.AppendLine($"    public void Method{m}(int x) {{ }}");
+            }
+
             sb.AppendLine("    public void Dispose() { }");
             sb.AppendLine("}");
             sb.AppendLine();
@@ -60,5 +69,5 @@ public class ParsingBenchmarks
     }
 
     [Benchmark(Description = "Parse single file")]
-    public object? ParseFile() => _parser.Parse(_filePath);
+    public SourceFileIndex? ParseFile() => _parser.Parse(_filePath, ProjectName);
 }
