@@ -7,20 +7,116 @@ Copilot, …). No cloud, no embeddings — everything runs on your machine.
 
 ## Install
 
+CodeIndex isn't on NuGet yet — build it from source. You need the **.NET 10 SDK**.
+
 ```bash
-dotnet tool install -g CodeIndex
+git clone https://github.com/acikeldev/CodeIndex.git
+cd CodeIndex
+dotnet build CodeIndex.slnx -c Release
 ```
 
-Published to [NuGet.org](https://www.nuget.org/packages/CodeIndex) on each tagged release (via the `Release`
-GitHub Actions workflow). Requires the .NET 10 SDK.
+That produces the server at `src/CodeIndex/bin/Release/net10.0/CodeIndex.dll`. From here, pick one of two ways
+to run it.
 
-Point your MCP client at the `codeindex` command (typically via an `.mcp.json` in your repo). The server
-auto-detects the repo root from the nearest `.git`; override with `--root <path>` or the `CODEINDEX_ROOT`
-environment variable.
+**Option A — install as a global tool** (gives you a `codeindex` command on your PATH; closest to the eventual
+NuGet experience):
 
-Update with `dotnet tool update -g CodeIndex`.
+```bash
+dotnet pack src/CodeIndex/CodeIndex.csproj -c Release -o ./nupkg
+dotnet tool install --global --add-source ./nupkg CodeIndex --version 0.0.0-dev
+```
 
-## Configuration (optional)
+`codeindex` is now on your PATH (via `~/.dotnet/tools`). To pick up later changes, re-pack and reinstall:
+
+```bash
+dotnet pack src/CodeIndex/CodeIndex.csproj -c Release -o ./nupkg
+dotnet tool uninstall --global CodeIndex
+dotnet tool install --global --add-source ./nupkg CodeIndex --version 0.0.0-dev
+```
+
+**Option B — run the built DLL directly** (no global install; easiest to iterate on — just `dotnet build` again
+after a change). Point your MCP client at `dotnet <path>/CodeIndex.dll`; see the next section.
+
+> A tagged release publishes to NuGet.org via the `Release` GitHub Actions workflow; once that's live,
+> `dotnet tool install -g CodeIndex` becomes the one-liner. Until then, use the source build above.
+
+## MCP configuration
+
+CodeIndex is an MCP **stdio** server: your client launches the process and talks to it over stdin/stdout.
+Configure it the way any MCP client expects.
+
+**Claude Code** — drop a `.mcp.json` at your repo root (project-scoped and committable, so your whole team gets
+it automatically):
+
+Option A — global tool:
+
+```json
+{
+  "mcpServers": {
+    "codeindex": {
+      "command": "codeindex",
+      "args": []
+    }
+  }
+}
+```
+
+Option B — built DLL (use absolute, forward-slash paths — they work on Windows too):
+
+```json
+{
+  "mcpServers": {
+    "codeindex": {
+      "command": "dotnet",
+      "args": [
+        "C:/path/to/CodeIndex/src/CodeIndex/bin/Release/net10.0/CodeIndex.dll",
+        "--root", "C:/path/to/your-repo"
+      ]
+    }
+  }
+}
+```
+
+You can also register it from the CLI instead of hand-editing the file: `claude mcp add codeindex -- codeindex`
+(global tool), or `claude mcp add codeindex -- dotnet <path>/CodeIndex.dll --root <repo>` (built DLL).
+
+**Repo root.** The server indexes one repository. It resolves the root in this order: `--root <path>` (or `-r`)
+→ the `CODEINDEX_ROOT` (or `REPO_ROOT`) environment variable → walking up from the working directory to the
+nearest `.git`. With the global-tool setup, launching from inside your repo is usually enough; with the DLL
+setup, pass `--root` explicitly as shown.
+
+**Other clients** (Cursor, Copilot, Windsurf, …) use the same `command` / `args` shape in their own MCP config
+file — reuse either block above.
+
+## Use it from your AI assistant
+
+So your coding agent actually *reaches for* these tools instead of grepping, add a short note to your
+`CLAUDE.md` / `AGENTS.md` (or the equivalent rules file for your client). Paste this in and adapt as needed:
+
+```markdown
+## Code Navigation (CodeIndex MCP)
+
+This repo has a CodeIndex MCP server. For any question about code — a symbol,
+type, method, file, or where something is used — PREFER its tools over raw
+grep / file-reading. They resolve symbols accurately and return token-lean
+results.
+
+Try these FIRST:
+- `search_symbol`   — find a type / method / property / field by name
+- `find_references` — every place a symbol is used
+- `get_file_outline` / `get_type_members` — structure of a file or type
+- `get_class_hierarchy` — base types (up) and implementors (down)
+- `search_text`     — full-text / regex search across the repo
+- `get_symbol_source` / `get_context_bundle` — read source by symbol / range
+- `repo_map` / `suggest_queries` — orient yourself in an unfamiliar codebase
+
+Fall back to plain grep / file reads only when the target isn't indexed
+(non-code files) or CodeIndex returns nothing.
+```
+
+See [Tools (18)](#tools-18) below for the complete list.
+
+## Index configuration (optional)
 
 Drop a `codeindex.json` at the repo root. Every key is optional; a missing file uses the defaults.
 
