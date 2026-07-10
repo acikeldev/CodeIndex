@@ -32,6 +32,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.*" />
     <PackageReference Include="MessagePack" Version="3.*" />
     <PackageReference Include="ModelContextProtocol" Version="0.*" />
+    <!-- TypeScript / TSX / SCSS indexing: bundled tree-sitter grammars + native runtimes (win/linux/osx). -->
+    <PackageReference Include="TreeSitter.DotNet" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>
