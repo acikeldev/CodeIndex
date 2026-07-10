@@ -49,6 +49,11 @@ internal static class Program
         builder.Logging.ClearProviders();
 
         builder.Services.AddSingleton<ICodeIndexStore>(index);
+
+        // Keep the index LIVE: watch .git/HEAD (branch switch) + source files -> debounced delta rebuilds, and kick
+        // the initial background TS/SCSS build post-serve (gated on config.IndexTypeScript) so it adds zero startup latency.
+        builder.Services.AddHostedService(_ => new RepositoryWatcher(index, repoRoot, config.IndexTypeScript));
+
         builder.Services
             .AddMcpServer()
             .WithStdioServerTransport();
