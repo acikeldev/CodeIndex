@@ -79,7 +79,7 @@ internal sealed partial class ProjectDependencyGraph
         {
             content = fileSystem.ReadAllText(csproj);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
             return Empty;
         }
@@ -106,7 +106,7 @@ internal sealed partial class ProjectDependencyGraph
 
             return fileSystem.EnumerateFiles(project.ProjectDirPath, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        catch (Exception)
         {
             return null;
         }

@@ -248,7 +248,7 @@ internal static class TsReferenceCheck
         {
             return n.GetChildForField(field);
         }
-        catch (ArgumentException)
+        catch (Exception)
         {
             return null;
         }
@@ -260,7 +260,7 @@ internal static class TsReferenceCheck
         {
             return n.Text;
         }
-        catch (ArgumentException)
+        catch (Exception)
         {
             return null;
         }

@@ -253,13 +253,13 @@ internal static class TsCallHierarchy
     private static Node? Field(Node n, string field)
     {
         try { return n.GetChildForField(field); }
-        catch (ArgumentException) { return null; }
+        catch (Exception) { return null; }
     }
 
     private static string Text(Node n)
     {
         try { return n.Text ?? string.Empty; }
-        catch (ArgumentException) { return string.Empty; }
+        catch (Exception) { return string.Empty; }
     }
 
     private static string Scope(string? project) => project is null ? string.Empty : $" in project '{project}'";

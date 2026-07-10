@@ -67,7 +67,7 @@ internal sealed class AtomicCacheIo
                         _fileSystem.DeleteFile(stale);
                     }
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                catch (Exception)
                 {
                     // locked / in use by another session — leave it
                 }

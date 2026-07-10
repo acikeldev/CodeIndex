@@ -76,7 +76,7 @@ internal static class StructuralSearch
             {
                 root = CSharpSyntaxTree.ParseText(string.Join("\n", lines), path: f.SourceFilePath).GetCompilationUnitRoot();
             }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            catch (Exception)
             {
                 return; // unparseable — skip, keep scanning the rest
             }

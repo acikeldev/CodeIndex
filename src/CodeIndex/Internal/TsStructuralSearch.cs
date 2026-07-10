@@ -68,7 +68,7 @@ internal static partial class TsStructuralSearch
             {
                 source = fileSystem.ReadAllText(f.SourceFilePath);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception)
             {
                 return;
             }
@@ -197,7 +197,7 @@ internal static partial class TsStructuralSearch
         {
             return n.Text ?? string.Empty;
         }
-        catch (Exception ex) when (ex is ArgumentException or IndexOutOfRangeException or InvalidOperationException)
+        catch (Exception)
         {
             return string.Empty;
         }
