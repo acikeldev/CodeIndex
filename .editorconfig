@@ -39,3 +39,7 @@ dotnet_diagnostic.IDE0011.severity = warning
 # cache writes) and any model shape change bumps the cache schema version (older caches are discarded and
 # rebuilt, never partially deserialized), so a missing key can never silently reset a collection default.
 dotnet_diagnostic.MsgPack017.severity = none
+
+# CA1812 (avoid uninstantiated internal classes): a false-positive magnet for types instantiated only via DI,
+# a factory, or a Lazy<T> closure (e.g. the cache/snapshot helpers). Off — real dead code is caught in review.
+dotnet_diagnostic.CA1812.severity = none
