@@ -3,8 +3,9 @@ using CodeIndex.Indexing;
 namespace CodeIndex.Abstractions;
 
 /// <summary>
-/// The TypeScript/SCSS-segment on-disk cache. Its schema version is INDEPENDENT of the C# cache, so bumping
-/// one never invalidates the other, and their versioned files coexist. Save is best-effort and never throws.
+/// The TypeScript/SCSS-segment on-disk cache. Its schema version is INDEPENDENT of the C# cache, so bumping one
+/// never invalidates the other, and their versioned files coexist. Save is best-effort and never throws. All
+/// members take the cache DIRECTORY and derive the versioned filename internally.
 /// </summary>
 public interface ITsIndexCache
 {
@@ -15,8 +16,8 @@ public interface ITsIndexCache
     string GetTsCachePath(string cacheDirectory);
 
     /// <summary>Loads the TS segment, or <see langword="null"/> if absent / unreadable / a different schema.</summary>
-    TsSegment? Load(string cachePath);
+    TsSegment? Load(string cacheDirectory);
 
     /// <summary>Atomically persists <paramref name="segment"/>. Best-effort — never throws.</summary>
-    void Save(string cachePath, TsSegment segment);
+    void Save(string cacheDirectory, TsSegment segment);
 }

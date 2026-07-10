@@ -4,7 +4,8 @@ namespace CodeIndex.Abstractions;
 
 /// <summary>
 /// The C#-segment on-disk index cache (independently versioned MessagePack). Save is best-effort and never
-/// throws; Load returns <see langword="null"/> on a missing / corrupt / schema-mismatched file.
+/// throws; Load returns <see langword="null"/> on a missing / corrupt / schema-mismatched file. All members take
+/// the cache DIRECTORY and derive the versioned filename internally.
 /// </summary>
 public interface ICodeIndexCache
 {
@@ -15,8 +16,8 @@ public interface ICodeIndexCache
     string GetCachePath(string cacheDirectory);
 
     /// <summary>Loads the cache, or <see langword="null"/> if absent / unreadable / a different schema.</summary>
-    CacheData? Load(string cachePath);
+    CacheData? Load(string cacheDirectory);
 
     /// <summary>Atomically persists <paramref name="data"/>. Best-effort — never throws.</summary>
-    void Save(string cachePath, CacheData data);
+    void Save(string cacheDirectory, CacheData data);
 }
