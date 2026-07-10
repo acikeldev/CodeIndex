@@ -48,6 +48,10 @@ internal static class Program
         // stdout is reserved for the MCP JSON-RPC transport — any stray console output breaks the protocol.
         builder.Logging.ClearProviders();
 
+        // Registered so the MCP SDK can inject them into tool methods: IFileSystem (the source-reading tools —
+        // get_symbol_source / get_context_bundle / find_references / search_text) and ICodeIndexCache (index_stats).
+        builder.Services.AddSingleton<IFileSystem>(fileSystem);
+        builder.Services.AddSingleton<ICodeIndexCache>(csCache);
         builder.Services.AddSingleton<ICodeIndexStore>(index);
 
         // Keep the index LIVE: watch .git/HEAD (branch switch) + source files -> debounced delta rebuilds, and kick
@@ -56,7 +60,8 @@ internal static class Program
 
         builder.Services
             .AddMcpServer()
-            .WithStdioServerTransport();
+            .WithStdioServerTransport()
+            .WithToolsFromAssembly();
 
         await builder.Build().RunAsync();
     }
