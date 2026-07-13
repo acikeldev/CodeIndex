@@ -31,17 +31,17 @@ public static class GetFileOutlineTool
 
         if (typesOnly)
         {
-            return FormatTypesOnly(result, reason: "typesOnly=true");
+            return FormatTypesOnly(result, reason: "typesOnly=true") + Steering.OutlineDossierHint;
         }
 
         string full = FormatOutline(result);
         // Guard against the response-token cap: fall back to the compact summary when the full outline is too large.
         if (full.Length > MaxOutlineChars)
         {
-            return FormatTypesOnly(result, reason: $"full outline ~{full.Length / 1000}k chars exceeds the response budget");
+            return FormatTypesOnly(result, reason: $"full outline ~{full.Length / 1000}k chars exceeds the response budget") + Steering.OutlineDossierHint;
         }
 
-        return full;
+        return full + Steering.OutlineDossierHint;
     }
 
     private static string FormatTypesOnly(SourceFileIndex file, string reason)

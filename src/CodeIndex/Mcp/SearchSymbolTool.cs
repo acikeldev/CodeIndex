@@ -53,7 +53,8 @@ public static class SearchSymbolTool
             results = results.Take(DefaultLimit).ToList();
         }
 
-        string body = detail.Equals("full", StringComparison.OrdinalIgnoreCase)
+        bool full = detail.Equals("full", StringComparison.OrdinalIgnoreCase);
+        string body = full
             ? FormatFullResults(results, tokenBudget, out int emitted)
             : FormatCompactResults(results, tokenBudget, out emitted);
 
@@ -63,7 +64,8 @@ public static class SearchSymbolTool
             ? $"{total} matches, showing {emitted} — narrow with kind= / project=, or set token_budget.\n"
             : $"{total} match{(total == 1 ? string.Empty : "es")}.\n";
 
-        return header + body;
+        // Footer only on the compact (LLM-facing) body — never pollute the JSON that detail=full returns.
+        return full ? header + body : header + body + Steering.SymbolDossierHint;
     }
 
     private static string FormatFullResults(List<SymbolSearchResult> results, int? tokenBudget, out int emitted)

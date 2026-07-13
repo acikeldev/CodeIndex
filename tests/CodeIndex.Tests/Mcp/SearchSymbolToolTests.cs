@@ -154,7 +154,33 @@ public sealed class SearchSymbolToolTests
         // 60 methods match, but the default limit caps the emitted rows at 50.
         result.Should().StartWith("60 matches, showing 50 —");
         result.Should().Contain("token_budget");
-        result.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length.Should().Be(51); // header + 50 rows
+        // Strip the advisory footer before counting content lines.
+        string rows = result.Replace(Steering.SymbolDossierHint, string.Empty);
+        rows.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length.Should().Be(51); // header + 50 rows
+    }
+
+    // ── success-path steering footer ───────────────────────────────────────────────
+
+    [Fact]
+    public void CompactSuccess_AppendsExplainSymbolFooter()
+    {
+        CodeIndexStore store = Build();
+
+        string result = SearchSymbolTool.SearchSymbol(store, "Widget");
+
+        result.Should().Contain("Tip: for this symbol");
+        result.Should().Contain("explain_symbol");
+    }
+
+    [Fact]
+    public void FullDetail_OmitsFooter_KeepingJsonClean()
+    {
+        CodeIndexStore store = Build();
+
+        string result = SearchSymbolTool.SearchSymbol(store, "Widget", detail: "full");
+
+        result.Should().NotContain("Tip:");
+        result.TrimEnd().Should().EndWith("]");
     }
 
     // ── token-budget packing ─────────────────────────────────────────────────────────
