@@ -1,0 +1,27 @@
+namespace CodeIndex.Internal;
+
+/// <summary>
+/// The server-instructions playbook sent to the MCP client on the handshake (via
+/// <c>McpServerOptions.ServerInstructions</c>). The client injects it into the model's system prompt, so it rides
+/// every turn at prefix-cache rates — the cheapest place to steer tool usage. Its whole job is to stop the two
+/// expensive defaults: grep-then-read-whole-files, and the search → members → source → refs micro-chain. It names
+/// the one-call composites (explain_symbol / prepare_change) and the batch reads that close an information need in
+/// a single round-trip, because the client re-bills the entire conversation every turn — turns, not bytes, cost.
+/// </summary>
+internal static class ServerPlaybook
+{
+    public const string Instructions =
+        "CodeIndex is a local code index. For any question about code — a symbol, type, method, file, or where\n"
+        + "something is used — prefer these tools over grep / reading whole files: they resolve names accurately\n"
+        + "and return small, pre-shaped answers.\n\n"
+        + "Close each information need in ONE call instead of a chain. Every extra tool call re-sends the whole\n"
+        + "conversation, so a call costs far more than the size of its result:\n"
+        + "- Understand a type or method -> explain_symbol (identity, members, inheritance, source, and references\n"
+        + "  in one response). Do NOT hand-run search_symbol -> get_type_members -> get_symbol_source -> find_references.\n"
+        + "- About to change a symbol -> prepare_change (definition + every call site + callers + implementors/overrides).\n"
+        + "- Read several symbols' source -> get_context_bundle with all names at once, not one get_symbol_source each.\n"
+        + "- New to the repo -> suggest_queries or repo_map once for orientation before exploring.\n"
+        + "- Who calls / implements X -> call_hierarchy or get_class_hierarchy (resolved, not a text guess).\n\n"
+        + "Only fall back to grep / file reads when the target isn't indexed (non-code files, logs, config) or a\n"
+        + "tool returns nothing.";
+}

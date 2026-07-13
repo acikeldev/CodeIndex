@@ -59,7 +59,9 @@ internal static class Program
         builder.Services.AddHostedService(_ => new RepositoryWatcher(index, repoRoot, config.IndexTypeScript));
 
         builder.Services
-            .AddMcpServer()
+            // ServerInstructions rides every turn in the client's system prompt (prefix-cached) — the cheapest
+            // place to steer agents off grep+whole-file-reads and off the search→members→source→refs micro-chain.
+            .AddMcpServer(options => options.ServerInstructions = ServerPlaybook.Instructions)
             .WithStdioServerTransport()
             .WithToolsFromAssembly();
 
