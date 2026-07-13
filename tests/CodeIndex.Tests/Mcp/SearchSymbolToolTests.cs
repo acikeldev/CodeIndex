@@ -57,7 +57,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Widget", kind: "banana");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", kind: "banana");
 
         result.Should().StartWith("Unknown kind 'banana'.");
         result.Should().Contain("Valid kinds:");
@@ -70,7 +70,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Zzzznope");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Zzzznope");
 
         result.Should().StartWith("No symbols found matching 'Zzzznope'.");
         result.Should().Contain("search_text");
@@ -83,7 +83,7 @@ public sealed class SearchSymbolToolTests
         CodeIndexStore store = Build();
 
         // A near-miss of "Widget" should trigger the suggester.
-        string result = SearchSymbolTool.SearchSymbol(store, "Widgat");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widgat");
 
         result.Should().Contain("Did you mean");
         result.Should().Contain("Widget");
@@ -96,7 +96,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Widget", kind: "class");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", kind: "class");
 
         result.Should().StartWith("1 match.\n");
         result.Should().Contain("Widget");
@@ -109,7 +109,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "DoWork", kind: "method");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "DoWork", kind: "method");
 
         result.Should().StartWith("1 match.\n");
         result.Should().Contain("DoWork");
@@ -120,7 +120,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Widget", project: "App");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", project: "App");
 
         result.Should().Contain("(App)");
     }
@@ -132,7 +132,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Widget", kind: "class", detail: "full");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", kind: "class", detail: "full");
 
         result.Should().StartWith("1 match.\n");
         string json = result[(result.IndexOf('\n') + 1)..];
@@ -149,7 +149,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = BuildMany(60);
 
-        string result = SearchSymbolTool.SearchSymbol(store, "RepeatedMethod", kind: "method");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "RepeatedMethod", kind: "method");
 
         // 60 methods match, but the default limit caps the emitted rows at 50.
         result.Should().StartWith("60 matches, showing 50 —");
@@ -166,7 +166,7 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Widget");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget");
 
         result.Should().Contain("Tip: for this symbol");
         result.Should().Contain("explain_symbol");
@@ -177,10 +177,44 @@ public sealed class SearchSymbolToolTests
     {
         CodeIndexStore store = Build();
 
-        string result = SearchSymbolTool.SearchSymbol(store, "Widget", detail: "full");
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", detail: "full");
 
         result.Should().NotContain("Tip:");
         result.TrimEnd().Should().EndWith("]");
+    }
+
+    // ── speculative source appendix ────────────────────────────────────────────────
+
+    [Fact]
+    public void SingleMatch_AppendsSpeculativeSource()
+    {
+        CodeIndexStore store = Build();
+
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", kind: "class");
+
+        result.Should().Contain("pre-fetched");
+        result.Should().Contain("public class Widget");   // the pre-fetched source body
+    }
+
+    [Fact]
+    public void SpeculateDisabled_OmitsAppendix()
+    {
+        CodeIndexStore store = new(_fs, new IndexCache(_fs), new TsIndexCache(_fs), new CodeIndexConfig { Speculate = false });
+        store.Build(Root);
+
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", kind: "class");
+
+        result.Should().NotContain("pre-fetched");
+    }
+
+    [Fact]
+    public void ManyMatches_NoSpeculativeAppendix()
+    {
+        CodeIndexStore store = BuildMany(60);
+
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "RepeatedMethod", kind: "method");
+
+        result.Should().NotContain("pre-fetched");   // only a single confident match gets the appendix
     }
 
     // ── token-budget packing ─────────────────────────────────────────────────────────
@@ -191,7 +225,7 @@ public sealed class SearchSymbolToolTests
         CodeIndexStore store = BuildMany(60);
 
         // Tiny budget: only a handful of rows fit, but at least one is always emitted.
-        string result = SearchSymbolTool.SearchSymbol(store, "RepeatedMethod", kind: "method", tokenBudget: 20);
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "RepeatedMethod", kind: "method", tokenBudget: 20);
 
         result.Should().StartWith("60 matches, showing ");
         int emittedRows = result.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1;
@@ -204,7 +238,7 @@ public sealed class SearchSymbolToolTests
         CodeIndexStore store = BuildMany(60);
 
         string result = SearchSymbolTool.SearchSymbol(
-            store, "RepeatedMethod", kind: "method", detail: "full", tokenBudget: 40);
+            store, _fs, "RepeatedMethod", kind: "method", detail: "full", tokenBudget: 40);
 
         result.Should().StartWith("60 matches, showing ");
         string json = result[(result.IndexOf('\n') + 1)..];

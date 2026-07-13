@@ -19,6 +19,10 @@ public interface ICodeIndexStore
     int MemberCount { get; }
     IReadOnlyList<SourceFileIndex> AllSourceFiles { get; }
 
+    // ── behaviour flags (resolved from config) ────────────────────────────────
+    bool SpeculateEnabled { get; }
+    int SpeculateTokenBudget { get; }
+
     // ── query ────────────────────────────────────────────────────────────────
     List<SymbolSearchResult> SearchSymbol(string query, string? kindFilter, string? projectFilter);
     SourceFileIndex? GetFileOutline(string fileQuery);

@@ -18,6 +18,7 @@ public static class GetFileOutlineTool
     [Description("Get all types and members of a source file with signatures and line numbers. Accepts full or partial filename. Very large files degrade to a types-only summary (call get_type_members for a specific type). Pass typesOnly=true to force the summary.")]
     public static string GetFileOutline(
         ICodeIndexStore index,
+        IFileSystem fileSystem,
         [Description("Filename to look up (e.g., 'Constants.cs' or 'MyService.svc.cs')")] string file,
         [Description("Return only the type list with per-type member counts (default false)")] bool typesOnly = false)
     {
@@ -41,7 +42,8 @@ public static class GetFileOutlineTool
             return FormatTypesOnly(result, reason: $"full outline ~{full.Length / 1000}k chars exceeds the response budget") + Steering.OutlineDossierHint;
         }
 
-        return full + Steering.OutlineDossierHint;
+        // Small files: pre-fetch the whole body so the agent needn't follow up with get_symbol_source.
+        return full + SpeculativeAppendix.ForSmallFile(index, fileSystem, result.SourceFilePath) + Steering.OutlineDossierHint;
     }
 
     private static string FormatTypesOnly(SourceFileIndex file, string reason)

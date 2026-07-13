@@ -34,6 +34,17 @@ internal sealed class CodeIndexConfig
     public bool IndexTypeScript { get; init; } = true;
 
     /// <summary>
+    /// Append a small, confidence-gated "you'll probably want this next" section to a few tool responses (the
+    /// single-match search_symbol source, the whole body of a small file's outline). Trades a few tokens on the
+    /// current turn — re-billed at cache rates — for the extra round-trip a follow-up call would cost. Default true.
+    /// </summary>
+    public bool Speculate { get; init; } = true;
+
+    /// <summary>Token ceiling for a single speculative appendix; the section is skipped when the pre-fetched
+    /// content would exceed it, leaving a large body to an explicit call. Default 500.</summary>
+    public int SpeculateTokenBudget { get; init; } = 500;
+
+    /// <summary>
     /// Resolves the base directory for the "user" cache-dir setting. Defaults to the machine's
     /// <see cref="Environment.SpecialFolder.LocalApplicationData"/> folder; overridable purely as a test seam
     /// so the "user" branch can be exercised without touching the real profile folder (and without leaking a

@@ -14,14 +14,14 @@ namespace CodeIndex.Tests.Mcp;
 public sealed class GetFileOutlineToolTests
 {
     private const string Root = @"C:\repo";
+    private readonly InMemoryFileSystem _fs = new();
 
-    private static CodeIndexStore BuildStore(Action<InMemoryFileSystem> addFiles)
+    private CodeIndexStore BuildStore(Action<InMemoryFileSystem> addFiles)
     {
-        InMemoryFileSystem fs = new();
-        fs.AddFile(@"C:\repo\App.slnx", "<Solution>\n  <Project Path=\"P/P.csproj\" />\n</Solution>\n");
-        fs.AddFile(@"C:\repo\P\P.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
-        addFiles(fs);
-        CodeIndexStore store = new(fs, new IndexCache(fs), new TsIndexCache(fs), CodeIndexConfig.Default);
+        _fs.AddFile(@"C:\repo\App.slnx", "<Solution>\n  <Project Path=\"P/P.csproj\" />\n</Solution>\n");
+        _fs.AddFile(@"C:\repo\P\P.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
+        addFiles(_fs);
+        CodeIndexStore store = new(_fs, new IndexCache(_fs), new TsIndexCache(_fs), CodeIndexConfig.Default);
         store.Build(Root);
         return store;
     }
@@ -41,7 +41,7 @@ public sealed class GetFileOutlineToolTests
             }
             """));
 
-        string output = GetFileOutlineTool.GetFileOutline(store, "Widget.cs");
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Widget.cs");
 
         output.Should().Contain("# Widget.cs (P)");
         output.Should().Contain("Namespace: P");
@@ -64,7 +64,7 @@ public sealed class GetFileOutlineToolTests
             public enum Colour { Red, Green, Blue }
             """));
 
-        string output = GetFileOutlineTool.GetFileOutline(store, "Colour.cs");
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Colour.cs");
 
         output.Should().Contain("enum Colour");
         output.Should().Contain("Values:");
@@ -85,7 +85,7 @@ public sealed class GetFileOutlineToolTests
             }
             """));
 
-        string output = GetFileOutlineTool.GetFileOutline(store, "Outer.cs");
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Outer.cs");
 
         output.Should().Contain("## class Outer");
         output.Should().Contain("### class Inner");
@@ -104,7 +104,7 @@ public sealed class GetFileOutlineToolTests
             }
             """));
 
-        string output = GetFileOutlineTool.GetFileOutline(store, "Widget.cs", typesOnly: true);
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Widget.cs", typesOnly: true);
 
         output.Should().Contain("types-only summary (typesOnly=true)");
         output.Should().Contain("Call get_type_members(type=...)");
@@ -132,7 +132,7 @@ public sealed class GetFileOutlineToolTests
 
         CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Giant.cs", src.ToString()));
 
-        string output = GetFileOutlineTool.GetFileOutline(store, "Giant.cs");
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Giant.cs");
 
         output.Should().Contain("types-only summary");
         output.Should().Contain("exceeds the response budget");
@@ -146,11 +146,42 @@ public sealed class GetFileOutlineToolTests
     {
         CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Widget.cs", "namespace P; public class Widget { }"));
 
-        string output = GetFileOutlineTool.GetFileOutline(store, "Widgets.cs");
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Widgets.cs");
 
         output.Should().Contain("File 'Widgets.cs' not found in index.");
         output.Should().Contain("Try list_files to browse indexed files");
         // Close name should trigger a suggestion of the real file.
         output.Should().Contain("Widget.cs");
+    }
+
+    [Fact]
+    public void SmallFile_PreFetchesFullSource()
+    {
+        CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Widget.cs", """
+            namespace P;
+            public class Widget
+            {
+                public void Run() { }
+            }
+            """));
+
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Widget.cs");
+
+        output.Should().Contain("Full source (small file");
+        output.Should().Contain("public void Run()");
+    }
+
+    [Fact]
+    public void SpeculateDisabled_OmitsFullSource()
+    {
+        _fs.AddFile(@"C:\repo\App.slnx", "<Solution>\n  <Project Path=\"P/P.csproj\" />\n</Solution>\n");
+        _fs.AddFile(@"C:\repo\P\P.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
+        _fs.AddFile(@"C:\repo\P\Widget.cs", "namespace P;\npublic class Widget { public void Run() { } }\n");
+        CodeIndexStore store = new(_fs, new IndexCache(_fs), new TsIndexCache(_fs), new CodeIndexConfig { Speculate = false });
+        store.Build(Root);
+
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Widget.cs");
+
+        output.Should().NotContain("Full source (small file");
     }
 }

@@ -67,6 +67,10 @@ internal sealed class CodeIndexStore : ICodeIndexStore
         _scssParser = new ScssParser(_fileSystem);
     }
 
+    // Speculative-appendix behaviour, surfaced from config so the (config-less) MCP tools can gate on it.
+    public bool SpeculateEnabled => _config.Speculate;
+    public int SpeculateTokenBudget => _config.SpeculateTokenBudget;
+
     private IndexSnapshot Current => Volatile.Read(ref _snapshot);
 
     // Compose the published snapshot from the two segments. Fast-path: with no TS files (C#-only repos and the whole

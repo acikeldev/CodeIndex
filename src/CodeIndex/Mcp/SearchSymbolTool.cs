@@ -25,6 +25,7 @@ public static class SearchSymbolTool
     [Description("Find symbols by name across all indexed C# projects. Default returns compact one-line format. Use detail='full' for JSON with namespace, project, parentType, sourceFilePath. Use token_budget to cap response size.")]
     public static string SearchSymbol(
         ICodeIndexStore index,
+        IFileSystem fileSystem,
         [Description("Search query - case-insensitive match against symbol names")] string query,
         [Description("Optional kind filter: class, struct, record, interface, enum, method, property, field, constructor, event")] string? kind = null,
         [Description("Optional project name filter (e.g., 'MyApp.Core')")] string? project = null,
@@ -64,8 +65,18 @@ public static class SearchSymbolTool
             ? $"{total} matches, showing {emitted} — narrow with kind= / project=, or set token_budget.\n"
             : $"{total} match{(total == 1 ? string.Empty : "es")}.\n";
 
-        // Footer only on the compact (LLM-facing) body — never pollute the JSON that detail=full returns.
-        return full ? header + body : header + body + Steering.SymbolDossierHint;
+        // Footer + speculative source only on the compact (LLM-facing) body — never pollute detail=full's JSON.
+        if (full)
+        {
+            return header + body;
+        }
+
+        // Exactly one match is the high-confidence signal that the source is the next thing the agent wants.
+        string appendix = total == 1
+            ? SpeculativeAppendix.ForSource(index, fileSystem, results[0].SourceFilePath, results[0].StartLine, results[0].LineCount)
+            : string.Empty;
+
+        return header + body + appendix + Steering.SymbolDossierHint;
     }
 
     private static string FormatFullResults(List<SymbolSearchResult> results, int? tokenBudget, out int emitted)
