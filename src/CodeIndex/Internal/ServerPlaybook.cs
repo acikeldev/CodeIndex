@@ -22,6 +22,7 @@ internal static class ServerPlaybook
         + "- About to change a symbol -> prepare_change (definition + every call site + callers + implementors/overrides).\n"
         + "- Read several symbols' source -> get_context_bundle with all names at once, not one get_symbol_source each.\n"
         + "- New to the repo -> get_onboarding once (projects + key symbols, cached) for orientation.\n"
+        + "- Starting an unfamiliar task -> get_task_context '<task>' (task-focused symbols + a dossier).\n"
         + "- Who calls / implements X -> call_hierarchy or get_class_hierarchy (resolved, not a text guess).\n\n"
         + "Only fall back to grep / file reads when the target isn't indexed (non-code files, logs, config) or a\n"
         + "tool returns nothing.";
