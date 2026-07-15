@@ -84,12 +84,13 @@ public static class FindReferencesTool
     }
 
     /// <summary>
-    /// Heuristic: true when EVERY word-boundary occurrence on the line sits inside a double-quoted string or after
-    /// a '//'. The caller only invokes this on lines already accepted by <see cref="IsCodeReference"/> (a full-line
-    /// comment never reaches here), so it isolates trailing-comment-only and string-literal-only mentions. A line
-    /// with even one code occurrence returns false (kept as a real reference), so mixed lines never underclaim.
-    /// NOT authoritative: verbatim (@"), interpolated ($") holes, raw ("""), and char literals can fool it — which
-    /// is why it only re-partitions the facet split and never changes the headline reference total.
+    /// Heuristic: true when EVERY word-boundary occurrence on the line is inside a double-quoted string literal or
+    /// after a '//'. The caller only invokes this on lines already accepted by <see cref="IsCodeReference"/> (a
+    /// full-line comment never reaches here), so it isolates trailing-comment-only and string-literal-only
+    /// mentions. A line with even one code occurrence returns false (kept as a real reference), so mixed lines
+    /// never underclaim. Handles char literals (so a '"' doesn't open a phantom string) and $-interpolation holes
+    /// (code inside {…} counts as real). NOT authoritative — verbatim (@") and raw (""") strings can still fool it,
+    /// which is why it only re-partitions the facet split and never changes the headline reference total.
     /// </summary>
     internal static bool IsStringOrCommentOnlyReference(string line, Regex wordBoundary)
     {
@@ -110,25 +111,73 @@ public static class FindReferencesTool
         return true;
     }
 
-    // Single left-to-right scan to `index`, tracking plain double-quoted string state (honouring \" and \\ escapes)
-    // and a '//' line-comment start seen outside a string. Deliberately simple; see the caveats above.
+    // Single left-to-right scan to `index`. Tracks double-quoted string state (honouring \" and \\ escapes),
+    // $-interpolation holes ({…} inside an interpolated string is real code), char literals (skipped so a '"'
+    // char can't open a phantom string), and a '//' line-comment start outside a string. Verbatim/raw strings are
+    // not modelled (documented limitation — facet-only impact).
     private static bool IsInsideStringOrComment(string line, int index)
     {
         bool inString = false;
+        bool interpolated = false;
+        int holeDepth = 0;   // brace depth inside an interpolated string; >0 means we're in a real-code hole
         for (int i = 0; i < index; i++)
         {
             char c = line[i];
             if (inString)
             {
+                if (holeDepth > 0)
+                {
+                    if (c == '{')
+                    {
+                        holeDepth++;
+                    }
+                    else if (c == '}')
+                    {
+                        holeDepth--;
+                    }
+
+                    continue;
+                }
+
                 if (c == '\\')
                 {
-                    i++;
+                    i++;   // skip the escaped char (\" \\ etc.)
+                    continue;
+                }
+
+                if (interpolated && c == '{')
+                {
+                    if (i + 1 < line.Length && line[i + 1] == '{')
+                    {
+                        i++;   // {{ is a literal brace, still string
+                        continue;
+                    }
+
+                    holeDepth = 1;   // entering a code hole
                     continue;
                 }
 
                 if (c == '"')
                 {
                     inString = false;
+                    interpolated = false;
+                }
+
+                continue;
+            }
+
+            if (c == '\'')
+            {
+                // Skip a char literal so a '"' inside it can't open a phantom string.
+                i++;
+                while (i < index && line[i] != '\'')
+                {
+                    if (line[i] == '\\')
+                    {
+                        i++;
+                    }
+
+                    i++;
                 }
 
                 continue;
@@ -137,6 +186,7 @@ public static class FindReferencesTool
             if (c == '"')
             {
                 inString = true;
+                interpolated = i > 0 && line[i - 1] == '$';
                 continue;
             }
 
@@ -146,7 +196,8 @@ public static class FindReferencesTool
             }
         }
 
-        return inString;
+        // A match reached while inside a code hole is real code, not "inside string".
+        return inString && holeDepth == 0;
     }
 
     internal static bool IsCodeReference(string line, string symbol, Regex wordBoundary)

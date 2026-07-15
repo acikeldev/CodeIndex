@@ -35,6 +35,8 @@ public sealed class GetSymbolSourceToolTests
                 public void Dispose() { }
             }
             """);
+        _fs.AddFile(@"C:\repo\P\Overloaded.cs",
+            "namespace N;\npublic class Overloaded\n{\n    public void Handle() { }\n    public void Handle(int x) { }\n}");
     }
 
     private CodeIndexStore Build()
@@ -183,6 +185,33 @@ public sealed class GetSymbolSourceToolTests
         string result = GetSymbolSourceTool.GetSymbolSource(store, _fs);
 
         result.Should().Contain("Provide member=");
+    }
+
+    [Fact]
+    public void Member_Overloads_AmbiguousUntilStartLineSelects()
+    {
+        CodeIndexStore store = Build();
+
+        string ambiguous = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "Handle");
+        ambiguous.Should().StartWith("AMBIGUOUS: 2 members named 'Handle'");
+
+        // Re-calling with member= plus the startLine of one overload selects it (the advertised escape hatch).
+        string picked = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "Handle", startLine: 5);
+        picked.Should().StartWith("# Overloaded.");
+        picked.Should().Contain("void Handle(int)");
+        picked.Should().NotContain("AMBIGUOUS");
+    }
+
+    [Fact]
+    public void Member_ScopedToFile_DoesNotFallBackToUnrelatedType()
+    {
+        CodeIndexStore store = Build();
+
+        // 'A' is a type in A.cs, but scoped to Services.cs where it doesn't exist: must NOT return A's body.
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "A", file: "Services.cs");
+
+        result.Should().Contain("not found");
+        result.Should().NotContain("public class A");
     }
 
     [Fact]

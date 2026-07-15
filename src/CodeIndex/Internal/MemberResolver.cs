@@ -25,7 +25,7 @@ internal static class MemberResolver
         string Project);
 
     public static MemberLocation? Resolve(
-        ICodeIndexStore index, string member, string? file, string? type, string? ns, string? project, out string? error)
+        ICodeIndexStore index, string member, string? file, string? type, string? ns, string? project, int? startLineHint, out string? error)
     {
         error = null;
 
@@ -91,16 +91,31 @@ internal static class MemberResolver
 
         if (distinct.Count > 1)
         {
+            // An explicit startLine selects one overload/among-duplicates — the advertised escape hatch when
+            // type=/namespace=/project= can't split overloads (they share all three).
+            if (startLineHint is not null)
+            {
+                List<MemberLocation> atLine = distinct.Where(d => d.StartLine == startLineHint.Value).ToList();
+                if (atLine.Count == 1)
+                {
+                    return atLine[0];
+                }
+            }
+
             error = BuildAmbiguous(index, member, distinct);
             return null;
         }
 
-        // No member matched — try the name as a TYPE (satisfies "member/type by name").
-        MemberLocation? asType = ResolveAsType(index, member, ns, project, out string? typeError);
-        if (asType is not null || typeError is not null)
+        // No member matched. Only fall back to a same-named TYPE when the caller did NOT scope to a file/type —
+        // otherwise we'd hand back an unrelated type's body from a different file than the one they asked about.
+        if (file is null && type is null)
         {
-            error = typeError;
-            return asType;
+            MemberLocation? asType = ResolveAsType(index, member, ns, project, out string? typeError);
+            if (asType is not null || typeError is not null)
+            {
+                error = typeError;
+                return asType;
+            }
         }
 
         error = $"Member '{member}'"
@@ -137,7 +152,7 @@ internal static class MemberResolver
     {
         IReadOnlyDictionary<string, string> dirs = index.ProjectDirsByName();
         StringBuilder sb = new();
-        sb.AppendLine($"AMBIGUOUS: {matches.Count} members named '{member}' — pass type=/namespace=/project= to pick one (for overloads pass an exact startLine+lineCount from below):");
+        sb.AppendLine($"AMBIGUOUS: {matches.Count} members named '{member}' — pass type=/namespace=/project= to pick one, or (for overloads) re-call with member= plus the startLine= of the one you want from below:");
         foreach (MemberLocation m in matches.OrderBy(m => m.Project, StringComparer.OrdinalIgnoreCase).ThenBy(m => m.StartLine))
         {
             sb.AppendLine($"  - {m.TypeName}.{m.Signature} [{GroupedMatchOutput.RelPath(m.SourceFilePath, m.Project, dirs)}:{m.StartLine}+{m.LineCount}] ({m.Project})");

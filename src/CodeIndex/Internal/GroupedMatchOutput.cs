@@ -59,7 +59,7 @@ internal static class GroupedMatchOutput
 
         // Reference facets: split the total into prod/test/generated (by file), minus a heuristic string/comment
         // count. Gated so search_text (which legitimately matches string literals) is byte-for-byte unchanged.
-        string? facetLine = opt.ClassifyReferences ? BuildFacetLine(hits, opt.Label) : null;
+        string? facetLine = opt.ClassifyReferences ? BuildFacetLine(hits, opt.Label, projectDirByName) : null;
 
         // Body order: demote generated (unless includeGenerated) → count desc → relative path.
         List<ParallelScanner.FileHits> ordered = hits
@@ -126,7 +126,7 @@ internal static class GroupedMatchOutput
     // generated > test > prod, so every real (code) reference lands in exactly one bucket and the three sum to the
     // real total. The headline "N refs" count is never changed by this — the split only re-partitions it, so a
     // heuristic miss can only shift the split, never the authoritative total printed above.
-    private static string BuildFacetLine(IReadOnlyList<ParallelScanner.FileHits> hits, string label)
+    private static string BuildFacetLine(IReadOnlyList<ParallelScanner.FileHits> hits, string label, IReadOnlyDictionary<string, string> projectDirByName)
     {
         int prod = 0;
         int test = 0;
@@ -141,11 +141,12 @@ internal static class GroupedMatchOutput
                 continue;
             }
 
+            string? projectDir = projectDirByName.TryGetValue(h.ProjectName, out string? dir) ? dir : null;
             if (h.IsGenerated)
             {
                 generated += code;
             }
-            else if (TestFileClassifier.IsTest(h.SourceFilePath, h.ProjectName))
+            else if (TestFileClassifier.IsTest(h.SourceFilePath, h.ProjectName, projectDir))
             {
                 test += code;
             }

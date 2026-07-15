@@ -194,6 +194,8 @@ public sealed class FindReferencesToolTests
     [InlineData("        DoThing(); // note about Sprocket", true)] // only in a trailing comment
     [InlineData("        var u = \"http://Sprocket/path\";", true)] // '//' inside a string must NOT read as a comment
     [InlineData("        Sprocket s; // and Sprocket again", false)] // one real occurrence keeps it a code ref
+    [InlineData("        Log($\"total {Sprocket.Count}\");", false)] // interpolation hole is real code
+    [InlineData("        char q = '\"'; Sprocket.Do();", false)]     // char-literal '\"' must not open a phantom string
     public void IsStringOrCommentOnlyReference_ClassifiesMatchContext(string line, bool expected)
     {
         Regex boundary = FindReferencesTool.GetWordBoundaryRegex("Sprocket");

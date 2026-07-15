@@ -27,7 +27,7 @@ public static class GetSymbolSourceTool
     {
         if (member is not null)
         {
-            MemberResolver.MemberLocation? loc = MemberResolver.Resolve(index, member, file, type, @namespace, project, out string? memberError);
+            MemberResolver.MemberLocation? loc = MemberResolver.Resolve(index, member, file, type, @namespace, project, startLine, out string? memberError);
             if (loc is null)
             {
                 return memberError!;
@@ -93,6 +93,10 @@ public static class GetSymbolSourceTool
         return sb.ToString();
     }
 
+    // NOTE: member-mode results are NOT covered here (AMBIGUOUS / "Member ... not found" / "too large" / the usage
+    // guidance, and a stale-index sentinel that trails the header). The only callers that embed a result AS source
+    // (DossierBuilder, SpeculativeAppendix) always call in line-window mode, so they never see those. Any future
+    // caller that uses member= mode internally must not feed the result to IsErrorResult / embed it as code.
     // The non-source sentinels GetSymbolSource can return (refused path / missing file / start-past-EOF). Callers
     // that embed the result AS source — the dossiers and the speculative appendix — must check this first so an
     // error string is never presented as code (e.g. on a stale index after the file shrank or was deleted).

@@ -10,18 +10,19 @@ namespace CodeIndex.Tests.Internal;
 public sealed class TestFileClassifierTests
 {
     [Theory]
-    [InlineData(@"C:\repo\App.Tests\Foo.cs", "App.Tests", true)]     // test project (last segment 'Tests')
-    [InlineData(@"C:\repo\Foo.Test\Bar.cs", "Foo.Test", true)]       // last segment 'Test'
-    [InlineData(@"C:\repo\App\WidgetTests.cs", "App", true)]         // filename ends with 'Tests.cs'
-    [InlineData(@"C:\repo\test\Helpers.cs", "App", true)]            // 'test' path segment
-    [InlineData(@"C:\repo\App\tests\Helpers.cs", "App", true)]       // 'tests' path segment
-    [InlineData(@"C:\repo\App\Latest.cs", "App", false)]            // NOT '*Tests.cs'
-    [InlineData(@"C:\repo\App\Manifest.cs", "App", false)]
-    [InlineData(@"C:\repo\App\Service.cs", "App", false)]           // plain production
-    [InlineData(@"C:\repo\App\Service.cs", null, false)]            // null project name
-    public void IsTest_AppliesProjectFileAndDirHeuristics(string path, string? project, bool expected)
+    [InlineData(@"C:\repo\App.Tests\Foo.cs", "App.Tests", null, true)]                         // last segment 'Tests'
+    [InlineData(@"C:\repo\App.IntegrationTests\Foo.cs", "App.IntegrationTests", null, true)]   // EndsWith 'Tests'
+    [InlineData(@"C:\repo\Foo.Test\Bar.cs", "Foo.Test", null, true)]                           // equals 'Test'
+    [InlineData(@"C:\repo\App\WidgetTests.cs", "App", null, true)]                             // filename '*Tests.cs'
+    [InlineData(@"C:\repo\App\tests\Helpers.cs", "App", @"C:\repo\App", true)]                 // 'tests' dir under project
+    [InlineData(@"C:\repo\App\Latest.cs", "App", null, false)]                                 // NOT '*Tests.cs'
+    [InlineData(@"C:\repo\App\Greatest.cs", "Greatest", null, false)]                          // 'Greatest' project not a FP
+    [InlineData(@"C:\repo\App\Service.cs", "App", null, false)]                                // plain production
+    [InlineData(@"C:\repo\App\Service.cs", null, null, false)]                                 // null project name
+    [InlineData(@"C:\test\repo\App\Service.cs", "App", @"C:\test\repo\App", false)]            // ambient 'test' ancestor ignored
+    public void IsTest_AppliesProjectFileAndDirHeuristics(string path, string? project, string? projectDir, bool expected)
     {
-        TestFileClassifier.IsTest(path, project).Should().Be(expected);
+        TestFileClassifier.IsTest(path, project, projectDir).Should().Be(expected);
     }
 
     [Fact]

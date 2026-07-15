@@ -17,7 +17,7 @@ public static class GetClassHierarchyTool
         [Description("Type name")] string type,
         [Description("Optional namespace to disambiguate (full or trailing segment)")] string? @namespace = null,
         [Description("Optional project to disambiguate")] string? project = null,
-        [Description("Return the full transitive closure of descendants (all depths, grouped by level), not just direct children")] bool transitive = false)
+        [Description("Return the full transitive closure of descendants (all depths, grouped by level), not just direct children. Name-based like the rest of the hierarchy: on deep trees it may include same-named types from unrelated namespaces, and namespace= only scopes the root")] bool transitive = false)
     {
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, type, @namespace, project, out string? error);
         if (resolved is null)
@@ -120,7 +120,13 @@ public static class GetClassHierarchyTool
             (string name, int depth) = frontier.Dequeue();
             if (depth >= MaxTransitiveDepth)
             {
-                truncated = true;
+                // Only a genuine drop is truncation — a leaf that merely sits AT the depth cap is complete, so
+                // don't cry "truncated" (and send the agent on wasted follow-ups) unless it actually has children.
+                if (index.GetDerivedTypes(name).Count > 0)
+                {
+                    truncated = true;
+                }
+
                 continue;
             }
 
