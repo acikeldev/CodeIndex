@@ -45,6 +45,36 @@ public sealed class FindReferencesToolTests
                 }
             }
             """);
+
+        // Reference-facet fixture: 'Sprocket' occurs in production code (2 code lines), a test file, a generated
+        // file, and once inside a string literal on its own line. 'SprocketUser'/'SprocketTests'/'SprocketGen'
+        // do NOT match \bSprocket\b (word boundary), so the counts are exactly 2 prod / 1 test / 1 generated / 1 string.
+        _fs.AddFile(@"C:\repo\App\Sprocket.cs", """
+            namespace App;
+            public class Sprocket
+            {
+                public void Spin() { }
+            }
+            public class SprocketUser
+            {
+                public void Use()
+                {
+                    Sprocket s = new Sprocket();
+                    string label = "Sprocket";
+                }
+            }
+            """);
+        _fs.AddFile(@"C:\repo\App\SprocketTests.cs", """
+            namespace App.Tests;
+            public class SprocketTests
+            {
+                public void T() { Sprocket s = new Sprocket(); }
+            }
+            """);
+        _fs.AddFile(@"C:\repo\App\SprocketGen.g.cs", """
+            namespace App;
+            public partial class SprocketGen { private Sprocket _s; }
+            """);
     }
 
     private CodeIndexStore Build()
@@ -143,5 +173,31 @@ public sealed class FindReferencesToolTests
 
         boundary.IsMatch("User user").Should().BeTrue();
         boundary.IsMatch("UserId x").Should().BeFalse();
+    }
+
+    [Fact]
+    public void FindReferences_UsageFacet_SplitsProdTestGenerated_AndExcludesStringOnly()
+    {
+        CodeIndexStore store = Build();
+
+        string result = FindReferencesTool.FindReferences(store, _fs, "Sprocket");
+
+        // Headline counts EVERY matched line (5) across the 3 files — unaffected by the facet split.
+        result.Should().Contain("Sprocket: 5 refs in 3 files");
+        // Facet: 2 prod + 1 test + 1 generated = 4 real; the lone string-literal line is excluded (heuristic).
+        result.Should().Contain("Usage: prod 2, test 1, generated 1 — 4 real refs (plus 1 string/comment-only, excluded — heuristic)");
+    }
+
+    [Theory]
+    [InlineData("        Sprocket s = new Sprocket();", false)]   // real code occurrences
+    [InlineData("        string label = \"Sprocket\";", true)]    // only inside a string literal
+    [InlineData("        DoThing(); // note about Sprocket", true)] // only in a trailing comment
+    [InlineData("        var u = \"http://Sprocket/path\";", true)] // '//' inside a string must NOT read as a comment
+    [InlineData("        Sprocket s; // and Sprocket again", false)] // one real occurrence keeps it a code ref
+    public void IsStringOrCommentOnlyReference_ClassifiesMatchContext(string line, bool expected)
+    {
+        Regex boundary = FindReferencesTool.GetWordBoundaryRegex("Sprocket");
+
+        FindReferencesTool.IsStringOrCommentOnlyReference(line, boundary).Should().Be(expected);
     }
 }

@@ -52,6 +52,9 @@ public sealed class SearchTextToolTests
         output.Should().Contain("A.cs(1)");
         output.Should().Contain("== Proj/A.cs ==");
         output.Should().Contain("needle");
+        // The find_references-only 'Usage:' facet must NOT leak into search_text (which matches string literals
+        // by design); the shared formatter keeps ClassifyReferences off for search_text.
+        output.Should().NotContain("Usage:");
     }
 
     [Fact]

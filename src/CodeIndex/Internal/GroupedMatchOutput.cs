@@ -9,7 +9,7 @@ namespace CodeIndex.Internal;
 /// </summary>
 internal static class GroupedMatchOutput
 {
-    internal sealed record Options(string Subject, string Label, int Max, int PerFileMax, bool IncludeGenerated, int SummaryTopFiles = 12);
+    internal sealed record Options(string Subject, string Label, int Max, int PerFileMax, bool IncludeGenerated, int SummaryTopFiles = 12, bool ClassifyReferences = false);
 
     /// <summary>Render one match (or a context window) WITHOUT the filename — the file header carries it.</summary>
     public static string RenderSample(string[] lines, int matchIndex, int contextLines, string? focus)
@@ -57,6 +57,10 @@ internal static class GroupedMatchOutput
         }
         string summary = $"{opt.Subject}: {totalMatches} {opt.Label} in {fileCount} files — {summaryList}";
 
+        // Reference facets: split the total into prod/test/generated (by file), minus a heuristic string/comment
+        // count. Gated so search_text (which legitimately matches string literals) is byte-for-byte unchanged.
+        string? facetLine = opt.ClassifyReferences ? BuildFacetLine(hits, opt.Label) : null;
+
         // Body order: demote generated (unless includeGenerated) → count desc → relative path.
         List<ParallelScanner.FileHits> ordered = hits
             .OrderBy(h => !opt.IncludeGenerated && h.IsGenerated ? 1 : 0)
@@ -89,6 +93,11 @@ internal static class GroupedMatchOutput
 
         StringBuilder sb = new();
         sb.AppendLine(summary);
+        if (facetLine is not null)
+        {
+            sb.AppendLine(facetLine);
+        }
+
         sb.AppendLine();
         sb.Append(body);
 
@@ -111,6 +120,44 @@ internal static class GroupedMatchOutput
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    // prod/test/generated split by file, minus the heuristic string/comment-only matches. Precedence
+    // generated > test > prod, so every real (code) reference lands in exactly one bucket and the three sum to the
+    // real total. The headline "N refs" count is never changed by this — the split only re-partitions it, so a
+    // heuristic miss can only shift the split, never the authoritative total printed above.
+    private static string BuildFacetLine(IReadOnlyList<ParallelScanner.FileHits> hits, string label)
+    {
+        int prod = 0;
+        int test = 0;
+        int generated = 0;
+        int nonCode = 0;
+        foreach (ParallelScanner.FileHits h in hits)
+        {
+            nonCode += h.NonCodeMatchCount;
+            int code = h.MatchCount - h.NonCodeMatchCount;
+            if (code <= 0)
+            {
+                continue;
+            }
+
+            if (h.IsGenerated)
+            {
+                generated += code;
+            }
+            else if (TestFileClassifier.IsTest(h.SourceFilePath, h.ProjectName))
+            {
+                test += code;
+            }
+            else
+            {
+                prod += code;
+            }
+        }
+
+        int real = prod + test + generated;
+        string tail = nonCode > 0 ? $" (plus {nonCode} string/comment-only, excluded — heuristic)" : string.Empty;
+        return $"Usage: prod {prod}, test {test}, generated {generated} — {real} real {label}{tail}";
     }
 
     private static string RelPath(ParallelScanner.FileHits h, IReadOnlyDictionary<string, string> projectDirByName) =>

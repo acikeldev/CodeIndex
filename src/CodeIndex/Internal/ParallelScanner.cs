@@ -20,7 +20,8 @@ internal sealed class ParallelScanner
         string FileName,
         int MatchCount,
         bool IsGenerated,
-        IReadOnlyList<string> Samples);
+        IReadOnlyList<string> Samples,
+        int NonCodeMatchCount = 0);
 
     internal sealed record ScanOutcome(IReadOnlyList<FileHits> Files, int SkippedFiles);
 
@@ -35,7 +36,8 @@ internal sealed class ParallelScanner
         IReadOnlyList<SourceFileIndex> files,
         Func<string, bool> lineMatcher,
         Func<string[], int, string> renderSample,
-        int perFileCap)
+        int perFileCap,
+        Func<string, bool>? nonCodeLineClassifier = null)
     {
         int skipped = 0;
         ConcurrentBag<FileHits> bag = new();
@@ -51,6 +53,7 @@ internal sealed class ParallelScanner
 
             string[] lines = read.Lines!;
             int count = 0;
+            int nonCode = 0;
             List<string>? samples = null;
             for (int i = 0; i < lines.Length; i++)
             {
@@ -60,6 +63,13 @@ internal sealed class ParallelScanner
                 }
 
                 count++;
+                // Tallied over ALL matched lines (not just the sampled ones) so the facet stays accurate under
+                // per-file/max truncation of the body.
+                if (nonCodeLineClassifier is not null && nonCodeLineClassifier(lines[i]))
+                {
+                    nonCode++;
+                }
+
                 if (perFileCap <= 0 || (samples?.Count ?? 0) < perFileCap)
                 {
                     (samples ??= []).Add(renderSample(lines, i));
@@ -70,7 +80,7 @@ internal sealed class ParallelScanner
             {
                 bag.Add(new FileHits(file.ProjectName, file.SourceFilePath, file.FileName, count,
                     GeneratedFileClassifier.IsGenerated(file.SourceFilePath),
-                    samples ?? (IReadOnlyList<string>)[]));
+                    samples ?? (IReadOnlyList<string>)[], nonCode));
             }
         });
 
