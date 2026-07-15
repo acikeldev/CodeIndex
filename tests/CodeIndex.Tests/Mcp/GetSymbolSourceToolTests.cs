@@ -23,6 +23,18 @@ public sealed class GetSymbolSourceToolTests
         _fs.AddFile(@"C:\repo\P\P.csproj",
             "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>\n");
         _fs.AddFile(@"C:\repo\P\A.cs", "namespace N;\npublic class A\n{\n    public void M() { }\n}");
+        _fs.AddFile(@"C:\repo\P\Services.cs", """
+            namespace N;
+            public class CatalogService
+            {
+                public void Dispose() { }
+                public int GetItems(int page) { return page; }
+            }
+            public class Widget
+            {
+                public void Dispose() { }
+            }
+            """);
     }
 
     private CodeIndexStore Build()
@@ -96,5 +108,104 @@ public sealed class GetSymbolSourceToolTests
         string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, @"C:\repo\P\A.cs", 100, 5);
 
         result.Should().Contain("Start line 100 is beyond file length (5 lines).");
+    }
+
+    [Fact]
+    public void Member_UniqueMember_ReturnsHeaderAndBodyOnly()
+    {
+        CodeIndexStore store = Build();
+
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "GetItems");
+
+        // Header names the enclosing type + signature + project-relative path; body is just the member.
+        result.Should().Contain("# CatalogService.");
+        result.Should().Contain("[Services.cs:");
+        result.Should().Contain("public int GetItems(int page)");
+        result.Should().NotContain("public class CatalogService");
+        result.Should().NotContain("Dispose");
+    }
+
+    [Fact]
+    public void Member_Ambiguous_ReturnsListingNoSource()
+    {
+        CodeIndexStore store = Build();
+
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "Dispose");
+
+        result.Should().StartWith("AMBIGUOUS: 2 members named 'Dispose'");
+        result.Should().Contain("CatalogService.");
+        result.Should().Contain("Widget.");
+        // A listing, not source.
+        result.Should().NotContain("    | ");
+    }
+
+    [Fact]
+    public void Member_DisambiguatedByType_ReturnsSingle()
+    {
+        CodeIndexStore store = Build();
+
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "Dispose", type: "Widget");
+
+        result.Should().StartWith("# Widget.");
+        result.Should().NotContain("AMBIGUOUS");
+        result.Should().Contain("public void Dispose()");
+    }
+
+    [Fact]
+    public void Member_NotFound_ReturnsMessageNoSource()
+    {
+        CodeIndexStore store = Build();
+
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "Ghost");
+
+        result.Should().Contain("Member 'Ghost'");
+        result.Should().Contain("not found in index.");
+    }
+
+    [Fact]
+    public void Member_TypeNameFallback_ReturnsWholeSmallType()
+    {
+        CodeIndexStore store = Build();
+
+        // 'A' is not a member name; it falls back to the type and renders the whole (small) type body.
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "A");
+
+        result.Should().StartWith("# class A [");
+        result.Should().Contain("public class A");
+        result.Should().Contain("public void M()");
+    }
+
+    [Fact]
+    public void NoMemberAndNoLineWindow_ReturnsUsageGuidance()
+    {
+        CodeIndexStore store = Build();
+
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs);
+
+        result.Should().Contain("Provide member=");
+    }
+
+    [Fact]
+    public void Member_TypeFallback_LargeType_RefusedWithGuidance()
+    {
+        System.Text.StringBuilder src = new();
+        src.AppendLine("namespace N;");
+        src.AppendLine("public class Big");
+        src.AppendLine("{");
+        for (int i = 0; i < 320; i++)
+        {
+            src.AppendLine($"    private int _f{i};");
+        }
+
+        src.AppendLine("}");
+        _fs.AddFile(@"C:\repo\P\Big.cs", src.ToString());
+        CodeIndexStore store = Build();
+
+        // 'Big' matches no member, falls back to the type, but the type is >300 lines: refuse and steer to outline.
+        string result = GetSymbolSourceTool.GetSymbolSource(store, _fs, member: "Big");
+
+        result.Should().Contain("too large to dump");
+        result.Should().Contain("get_file_outline");
+        result.Should().NotContain("private int _f0;");
     }
 }
