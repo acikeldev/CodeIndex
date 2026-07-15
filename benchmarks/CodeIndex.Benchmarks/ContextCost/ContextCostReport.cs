@@ -120,6 +120,13 @@ internal static class ContextCostReport
             new("Are there any empty `catch` blocks?",
                 () => b.Grep("catch", contextLines: 2),
                 () => StructuralSearchTool.SearchStructural(index, "empty-catch", project: null, max: 40, perFileMax: 5)),
+
+            // 9 — Understand a type AND its usage in one go. With grep you locate the class, read the whole file
+            //     for its API, then grep the name for call sites; explain_symbol returns identity + members +
+            //     source + references as one dossier — the dependent chain collapsed into a single call.
+            new("Understand the `CodeIndexStore` class and where it's used",
+                () => b.Grep("class CodeIndexStore") + "\n" + b.ReadWhole("CodeIndexStore.cs") + "\n" + b.Grep("CodeIndexStore"),
+                () => ExplainSymbolTool.ExplainSymbol(index, fs, "CodeIndexStore")),
         ];
     }
 
