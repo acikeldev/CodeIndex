@@ -38,7 +38,7 @@ call re-sends the whole conversation, so a call costs more than the size of its 
   response). Do NOT hand-run `search_symbol` → `get_type_members` → `get_symbol_source` → `find_references`.
 - About to change a symbol → `prepare_change` (definition + call sites + callers + implementors/overrides).
 - Read several symbols' source → `get_context_bundle` with all names at once.
-- Orient in unfamiliar code → `suggest_queries` / `repo_map`.
+- Orient in unfamiliar code → `get_onboarding` (cached projects + key symbols).
 - Who calls / implements X → `call_hierarchy` / `get_class_hierarchy`.
 - Strings / comments / config → `search_text`.
 

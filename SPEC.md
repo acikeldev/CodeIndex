@@ -11,7 +11,7 @@ AI coding assistants need to navigate large codebases, but the naive options are
 ## Solution
 
 CodeIndex is a **Roslyn + tree-sitter** MCP server. It parses the repository once, holds an **immutable in-memory
-index**, and serves **18 token-lean tools** over stdio/JSON-RPC. It indexes **C#** and **TypeScript / TSX / SCSS**,
+index**, and serves **19 token-lean tools** over stdio/JSON-RPC. It indexes **C#** and **TypeScript / TSX / SCSS**,
 runs **fully locally** (no cloud, no embeddings, no network), and ships as a .NET global tool that a repo
 `.mcp.json` starts automatically.
 

@@ -106,7 +106,7 @@ conversation, so a call costs more than the size of its result:
 - About to change a symbol -> `prepare_change` (definition + call sites +
   callers + implementors/overrides).
 - Read several symbols' source -> `get_context_bundle` with all names at once.
-- New to the repo -> `suggest_queries` or `repo_map` once for orientation.
+- New to the repo -> `get_onboarding` once (cached projects + key symbols).
 - Who calls / implements X -> `call_hierarchy` / `get_class_hierarchy`.
 - Text / regex (strings, config, comments) -> `search_text`.
 
