@@ -42,6 +42,10 @@ call re-sends the whole conversation, so a call costs more than the size of its 
 - Who calls / implements X → `call_hierarchy` / `get_class_hierarchy`.
 - Strings / comments / config → `search_text`.
 
+When a dossier (`explain_symbol` / `prepare_change`) answers your question, act on it directly — it already
+resolved the members, call sites, and file paths, so don't re-run grep / glob to double-check them. Only follow
+up when the dossier says to (a truncation note, or a section it didn't cover), using the call it names.
+
 **Claude Code:** for a multi-step navigation dig, dispatch the `code-navigator` subagent
 (`.claude/agents/code-navigator.md`) so the slice-by-slice exploration runs in a discardable context instead of
 re-billing your main conversation every turn.

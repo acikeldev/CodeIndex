@@ -19,4 +19,7 @@ How to work:
 - Prefer resolved answers (`find_references`, `get_class_hierarchy`, `call_hierarchy`) over `search_text`
   guesses; use `search_text` only for strings, comments, or config.
 - Don't pull whole files with `get_symbol_source` when an outline or a dossier already answers the question.
+- When a dossier answers the question, act on it directly — it already resolved the members, call sites, and
+  file paths, so don't re-run grep / glob to double-check them. Only follow up when the dossier says to (a
+  truncation note, or a section it didn't cover), using the call it names.
 - Stop as soon as you can answer. Hand back a tight summary; the caller will act on it.

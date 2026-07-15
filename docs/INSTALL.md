@@ -43,7 +43,17 @@ CodeIndex is an MCP **stdio** server: your client launches the process and talks
 Configure it the way any MCP client expects.
 
 **Claude Code** — drop a `.mcp.json` at your repo root (project-scoped and committable, so your whole team gets
-it automatically):
+it automatically).
+
+> **Eager vs. deferred tool loading (a trade-off, not a default to flip).** Since Claude Code v2.1.121, MCP tool
+> schemas are *deferred* behind `ToolSearch`: the agent pays a one-time `ToolSearch` round-trip the first time it
+> reaches for a CodeIndex tool, but a session that never navigates code carries none of the ~20 schemas. Adding
+> `"alwaysLoad": true` to the `codeindex` entry loads all schemas up front — it removes that first-use round-trip
+> but pays the full schema budget on *every* session, and exposing 20 tools eagerly can nudge the model to
+> over-call. Keep the deferred default unless you navigate code in most sessions. The client-wide alternative is
+> the `ENABLE_TOOL_SEARCH` env var — `false` disables deferral for *all* MCP servers (not just this one),
+> `auto:N` defers only once tool schemas exceed N% of the context window. `alwaysLoad` requires Claude Code
+> v2.1.121+ (older clients silently ignore it).
 
 Option A — global tool:
 
@@ -110,6 +120,11 @@ conversation, so a call costs more than the size of its result:
 - Who calls / implements X -> `call_hierarchy` / `get_class_hierarchy`.
 - Text / regex (strings, config, comments) -> `search_text`.
 
+When a dossier (`explain_symbol` / `prepare_change`) answers your question, act
+on it directly — it already lists the members, call sites, and file paths, so
+don't re-grep to double-check them. Only follow up when the dossier says to (a
+truncation note, or a section it didn't cover), using the call it names.
+
 Fall back to plain grep / file reads only when the target isn't indexed
 (non-code files) or CodeIndex returns nothing.
 ```
@@ -143,7 +158,7 @@ CodeIndex/
 │   ├── Caching/          MessagePack caches — C# segment + independent TS segment
 │   ├── Indexing/         Snapshot-swap store, C#+TS merge, dependency & mention graphs, file watcher
 │   ├── Internal/         Ranking, output-shaping, structural search, call hierarchy, config, path security
-│   └── Mcp/              The 18 MCP tool implementations
+│   └── Mcp/              The 20 MCP tool implementations
 ├── tests/CodeIndex.Tests/            xUnit unit tests over an in-memory file system
 └── benchmarks/CodeIndex.Benchmarks/  BenchmarkDotNet latency benchmarks + the context-cost report
 ```

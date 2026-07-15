@@ -24,6 +24,11 @@ internal static class ServerPlaybook
         + "- New to the repo -> get_onboarding once (projects + key symbols, cached) for orientation.\n"
         + "- Starting an unfamiliar task -> get_task_context '<task>' (task-focused symbols + a dossier).\n"
         + "- Who calls / implements X -> call_hierarchy or get_class_hierarchy (resolved, not a text guess).\n\n"
+        + "When a dossier answers your question, act on it directly: explain_symbol / prepare_change already\n"
+        + "resolved the members, call sites, and file paths, so don't re-run grep / glob to double-check what it\n"
+        + "gave you. Only follow up when it says so — a truncation note ('Response budget reached' / '... N more\n"
+        + "lines') or a section it didn't cover — using the exact call it names (get_symbol_source /\n"
+        + "find_references / call_hierarchy).\n\n"
         + "Only fall back to grep / file reads when the target isn't indexed (non-code files, logs, config) or a\n"
         + "tool returns nothing.";
 }
