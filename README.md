@@ -1,137 +1,120 @@
 # CodeIndex MCP
 
-A fast, **local** code-intelligence server that speaks the **Model Context Protocol (MCP)**. It indexes **C#**
-(via Roslyn) and **TypeScript / TSX / SCSS** (via tree-sitter) in a single process and serves **18 token-lean
-tools** for AI-assisted code navigation, search, and analysis. Works with any MCP client (Claude Code, Cursor,
-Copilot, …). No cloud, no embeddings — everything runs on your machine.
+**Stop paying your LLM to read whole files.** CodeIndex is a fast, **local** code-intelligence server for the
+**Model Context Protocol (MCP)** that answers "where is X / what's in Y / who calls Z" with resolved, token-lean
+results — so your coding agent spends its context window (and your pay-as-you-go budget) on *thinking*, not on
+grepping and re-reading source.
 
-## Install
+It indexes **C#** (Roslyn) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **20 tools** to
+any MCP client (Claude Code, Cursor, Copilot, …). No cloud, no embeddings, no API keys — everything runs on your
+machine.
 
-CodeIndex isn't on NuGet yet — build it from source. You need the **.NET 10 SDK**.
+→ **[Install & configure](docs/INSTALL.md)** · [The 20 tools](#the-20-tools) · [How it works](#how-it-works)
+
+---
+
+## Why it exists: grep + read is a token tax
+
+Give an agent only `grep` and "read file" and it does the obvious thing — greps a name, then reads whole files to
+see structure, find a definition, or understand a type. Every one of those file reads lands in the context window
+**in full**. On a pay-as-you-go plan you pay input-token rates for all of it, every turn it's resent, on every
+task.
+
+CodeIndex removes the tax. It parses your repo once and keeps a live index, so the agent asks a precise question
+and gets a precise, pre-shaped answer:
+
+| Without CodeIndex | With CodeIndex |
+|---|---|
+| grep a type name → read the whole 1,000-line file to list its members | `get_type_members` → just the signatures |
+| open 6+ files to understand an unfamiliar repo | `repo_map` → the important symbols, PageRank-ranked, in one call |
+| grep `catch` and read each block to find empty ones | `search_structural empty-catch` → only the real matches |
+| grep an interface name, scan every usage to find implementors | `get_class_hierarchy` → the implementors, directly |
+
+Same answers. A fraction of the tokens.
+
+## The numbers
+
+A reproducible benchmark ([`benchmarks/CodeIndex.Benchmarks/ContextCost`](benchmarks/CodeIndex.Benchmarks/ContextCost))
+runs a fixed suite of realistic code-intelligence questions **against CodeIndex's own repository**, two ways:
+
+- **Baseline** — ripgrep + file reads, i.e. what a competent agent does *without* CodeIndex.
+- **CodeIndex** — the actual MCP tool output (the real tool code path, called in-process).
+
+Both are measured in the same unit: **tokens ingested into the context window** (`ceil(chars / 4)`, applied
+identically to each side). The baseline is charged conservatively — raw file content, no line-number prefixes —
+so these reductions are a **floor**, not a best case.
+
+| # | Question a coding agent gets | Baseline (grep+read) | CodeIndex | Reduction |
+|---|------------------------------|---------------------:|----------:|----------:|
+| 1 | List the full API of the `CodeIndexStore` class | 12,844 | 1,051 | **−91.8%** |
+| 2 | Outline the types & members of `RepositoryWatcher.cs` | 3,538 | 368 | **−89.6%** |
+| 3 | Show the source of `IsGenerated`, `EstimateTokens`, `IsWithinRepo` | 2,944 | 357 | **−87.9%** |
+| 4 | Which classes implement `IFileSystem`? | 2,734 | 65 | **−97.6%** |
+| 5 | Find every use of the `ReadFileLines` method | 688 | 303 | −56.0% |
+| 6 | Where is the `CODEINDEX_ROOT` env var read? | 179 | 81 | −54.7% |
+| 7 | New here — what are the most important types to read first? | 24,907 | 2,021 | **−91.9%** |
+| 8 | Are there any empty `catch` blocks? | 13,757 | 86 | **−99.4%** |
+| | **TOTAL (8 tasks)** | **61,591** | **4,332** | **−93.0%** |
+
+**93% fewer input tokens** across the suite. Tasks 5 and 6 are deliberate honesty anchors — pure "list the
+matches" lookups where grep is genuinely competitive and CodeIndex only wins ~55%; the big wins are exactly where
+the baseline is forced to pull whole files into context.
+
+**What that costs.** At Claude Opus 4.8 input pricing (**$5 / 1M tokens**, as of 2026-07):
+
+| | Baseline | CodeIndex |
+|---|---:|---:|
+| This 8-task suite, once | $0.308 | $0.022 |
+| Per 1,000 such lookups | **$38.49** | **$2.71** |
+
+~$36 saved per thousand lookups.
+
+**Read this as a per-operation number, not a whole-session number.** It measures the *code-navigation* slice of a
+task in isolation. A real agent session also spends tokens on reasoning, editing, running tests, and its own
+output — navigation is only part of that, and every extra tool call re-sends the growing context.
+
+So the **session-level** saving is smaller — sometimes near zero. It pays off only when the smaller per-query
+payload outweighs CodeIndex's extra round-trips: large files you need small slices of, or navigation scattered
+across many files. A focused, few-file task can come out roughly even. In one real end-to-end A/B on this repo,
+total tokens and wall-clock landed **within ~1%** either way (CodeIndex cut raw navigation bytes ~29% but spent
+it back on more tool calls). Full numbers and a run-it-yourself protocol for *your* task and model:
+**[docs/BENCHMARK.md](docs/BENCHMARK.md)**.
+
+**When it wins, washes, or loses:**
+
+| Situation | Verdict |
+|---|---|
+| Large files you need a small slice of; references scattered across many files; a symbol to understand or safely change | **Win** — one dossier (`explain_symbol` / `prepare_change`) replaces a whole chain, where grep would pull entire files |
+| A focused task in a few mid-size files | **Wash** — smaller per-call payloads roughly cancel the extra round-trips |
+| A one- or two-call lookup; text / log / config hunts; a cold or stale index; tiny files; an unindexed language | **Grep wins** — a single ripgrep with no index and no orientation is hard to beat |
+
+The one-call dossiers, the usage playbook injected via MCP `ServerInstructions`, and the speculative next-hop
+appendix all exist to shrink the round-trip count that makes the wash a wash.
+
+**Reproduce it yourself** (numbers regenerate from your checkout — no hand-maintained figures):
 
 ```bash
-git clone https://github.com/acikeldev/CodeIndex.git
-cd CodeIndex
-dotnet build CodeIndex.slnx -c Release
+cd benchmarks/CodeIndex.Benchmarks
+dotnet run -c Release -- context-cost
 ```
 
-That produces the server at `src/CodeIndex/bin/Release/net10.0/CodeIndex.dll`. From here, pick one of two ways
-to run it.
+The suite's questions target this repo's own symbols, so it runs against the CodeIndex checkout by default.
+Point it at another repo (`-- context-cost /path/to/repo`) after adapting the scenarios in
+[`ContextCostReport.cs`](benchmarks/CodeIndex.Benchmarks/ContextCost/ContextCostReport.cs) to symbols that exist
+there.
 
-**Option A — install as a global tool** (gives you a `codeindex` command on your PATH; closest to the eventual
-NuGet experience):
+Want the end-to-end session-level proof (the `$ / tokens / wall-time` your MCP client's status line shows)? Run
+the same handful of code questions in two sessions — one with the CodeIndex tools enabled, one with only
+grep/read — and compare the status line. The per-task token deltas above are what drives that difference.
 
-```bash
-dotnet pack src/CodeIndex/CodeIndex.csproj -c Release -o ./nupkg
-dotnet tool install --global --add-source ./nupkg CodeIndex --version 0.0.0-dev
-```
+## The 20 tools
 
-`codeindex` is now on your PATH (via `~/.dotnet/tools`). To pick up later changes, re-pack and reinstall:
+**One-call dossiers** (prefer these — each collapses a multi-tool chain into a single round-trip)
 
-```bash
-dotnet pack src/CodeIndex/CodeIndex.csproj -c Release -o ./nupkg
-dotnet tool uninstall --global CodeIndex
-dotnet tool install --global --add-source ./nupkg CodeIndex --version 0.0.0-dev
-```
-
-**Option B — run the built DLL directly** (no global install; easiest to iterate on — just `dotnet build` again
-after a change). Point your MCP client at `dotnet <path>/CodeIndex.dll`; see the next section.
-
-> A tagged release publishes to NuGet.org via the `Release` GitHub Actions workflow; once that's live,
-> `dotnet tool install -g CodeIndex` becomes the one-liner. Until then, use the source build above.
-
-## MCP configuration
-
-CodeIndex is an MCP **stdio** server: your client launches the process and talks to it over stdin/stdout.
-Configure it the way any MCP client expects.
-
-**Claude Code** — drop a `.mcp.json` at your repo root (project-scoped and committable, so your whole team gets
-it automatically):
-
-Option A — global tool:
-
-```json
-{
-  "mcpServers": {
-    "codeindex": {
-      "command": "codeindex",
-      "args": []
-    }
-  }
-}
-```
-
-Option B — built DLL (use absolute, forward-slash paths — they work on Windows too):
-
-```json
-{
-  "mcpServers": {
-    "codeindex": {
-      "command": "dotnet",
-      "args": [
-        "C:/path/to/CodeIndex/src/CodeIndex/bin/Release/net10.0/CodeIndex.dll",
-        "--root", "C:/path/to/your-repo"
-      ]
-    }
-  }
-}
-```
-
-You can also register it from the CLI instead of hand-editing the file: `claude mcp add codeindex -- codeindex`
-(global tool), or `claude mcp add codeindex -- dotnet <path>/CodeIndex.dll --root <repo>` (built DLL).
-
-**Repo root.** The server indexes one repository. It resolves the root in this order: `--root <path>` (or `-r`)
-→ the `CODEINDEX_ROOT` (or `REPO_ROOT`) environment variable → walking up from the working directory to the
-nearest `.git`. With the global-tool setup, launching from inside your repo is usually enough; with the DLL
-setup, pass `--root` explicitly as shown.
-
-**Other clients** (Cursor, Copilot, Windsurf, …) use the same `command` / `args` shape in their own MCP config
-file — reuse either block above.
-
-## Use it from your AI assistant
-
-So your coding agent actually *reaches for* these tools instead of grepping, add a short note to your
-`CLAUDE.md` / `AGENTS.md` (or the equivalent rules file for your client). Paste this in and adapt as needed:
-
-```markdown
-## Code Navigation (CodeIndex MCP)
-
-This repo has a CodeIndex MCP server. For any question about code — a symbol,
-type, method, file, or where something is used — PREFER its tools over raw
-grep / file-reading. They resolve symbols accurately and return token-lean
-results.
-
-Try these FIRST:
-- `search_symbol`   — find a type / method / property / field by name
-- `find_references` — every place a symbol is used
-- `get_file_outline` / `get_type_members` — structure of a file or type
-- `get_class_hierarchy` — base types (up) and implementors (down)
-- `search_text`     — full-text / regex search across the repo
-- `get_symbol_source` / `get_context_bundle` — read source by symbol / range
-- `repo_map` / `suggest_queries` — orient yourself in an unfamiliar codebase
-
-Fall back to plain grep / file reads only when the target isn't indexed
-(non-code files) or CodeIndex returns nothing.
-```
-
-See [Tools (18)](#tools-18) below for the complete list.
-
-## Index configuration (optional)
-
-Drop a `codeindex.json` at the repo root. Every key is optional; a missing file uses the defaults.
-
-| Key | Default | Purpose |
-|-----|---------|---------|
-| `cacheDir` | `repo` | Cache location: `repo` (`{repo}/.codeindex`), `user` (`%LOCALAPPDATA%`, keeps the working tree clean & survives read-only checkouts), or an explicit path |
-| `exclude` | — | Extra directory names to prune, on top of the built-ins (`node_modules`, `bin`, `obj`, `.git`, …) |
-| `generatedGlobs` | built-ins | Globs marking generated files (demoted, not hidden, in results) |
-| `looseProjects` | `false` | Also index `.csproj` not referenced by any solution (for solution-less repos) |
-| `indexTypeScript` | `true` | Index TS/TSX/SCSS; set `false` for a C#-only index |
-
-Nothing is hardcoded — the repo root, cache location, excludes, and language coverage are all resolved
-dynamically or from this file.
-
-## Tools (18)
+| Tool | Languages | What it does |
+|------|-----------|--------------|
+| `explain_symbol` | C# + TS | A symbol's identity + members, inheritance, source, and references in ONE response — instead of chaining `search_symbol` → `get_type_members` → `get_symbol_source` → `find_references` |
+| `prepare_change` | C# + TS | Pre-edit briefing: definition + every call site + callers + implementors/overrides, in one call |
 
 **Orientation**
 
@@ -178,54 +161,36 @@ dynamically or from this file.
 
 ## How it works
 
+- **Token-lean by design.** Ranked results, grouping by file, per-file caps with true totals, and generated-file
+  demotion keep every response small — that's the whole point (see [the numbers](#the-numbers)).
+- **One round-trip by design.** The `explain_symbol` / `prepare_change` dossiers compose a whole navigation
+  chain server-side; a playbook sent via MCP `ServerInstructions` steers agents to them; and single-match results
+  pre-fetch their likely next hop. The client re-bills the entire conversation each turn, so *fewer* tool calls —
+  not just smaller ones — is what saves tokens.
 - **Non-blocking startup.** The server publishes a snapshot straight from the on-disk cache and answers
-  immediately; a background watcher revalidates against the working tree. A cold start with no cache builds once.
-  TS/SCSS is built in the background **after** C# is already serving — zero added startup latency.
-- **Lock-free reads.** The index is an immutable snapshot swapped in atomically. Readers never block on a rebuild
+  immediately; a background watcher revalidates against the working tree. TS/SCSS builds *after* C# is already
+  serving — zero added startup latency.
+- **Live & incremental.** A file edit or branch switch reparses only what changed (per-file modified-time delta)
+  — typically sub-second — so the index stays fresh without a restart.
+- **Lock-free reads.** The index is an immutable snapshot swapped in atomically; readers never block on a rebuild
   and never see a half-updated index.
-- **Incremental.** A file edit or a branch switch reparses only the files that changed (per-file modified-time
-  delta) — typically sub-second.
-- **Two segments, one index.** C# (Roslyn) and TS/SCSS (tree-sitter) are parsed independently and composed into a
-  single queryable snapshot; each has its own cache with an independent schema version.
 - **Syntax-only.** No assembly resolution, no `Compilation`, no NuGet restore — that's what keeps startup fast.
   Cross-file/overload resolution is therefore name-based (see [SPEC.md](SPEC.md) Limitations).
-- **Token-lean output.** Ranked results, grouping by file, per-file caps, true totals, and generated-file
-  demotion keep responses small.
-- **Live.** A file watcher keeps the index fresh without restarting the server.
+- **Deterministically testable.** All disk access flows through a single `IFileSystem` abstraction, so the whole
+  engine is exercised by an in-memory file system in the test suite — no real disk required.
 
-## Architecture note
+## Install
 
-All disk access flows through a single `IFileSystem` abstraction, so the scanners, parsers, caches, the
-snapshot-swap store, and every tool are exercised end-to-end by an in-memory file system in the test suite — the
-engine is deterministically testable without touching a real disk. The file watcher (inherently OS-bound) is the
-only concrete-filesystem component.
+Build from source (needs the **.NET 10 SDK**), then point your MCP client at it:
 
-## Project structure
-
-```
-CodeIndex/
-├── src/CodeIndex/
-│   ├── Program.cs        Entry point: repo-root resolution + config load + non-blocking startup + DI
-│   ├── Abstractions/     IFileSystem + store/cache interfaces (the testability seam)
-│   ├── Models/           MessagePack-annotated data models
-│   ├── Parsing/          Roslyn (C#) + tree-sitter (TS/TSX/SCSS) parsers and workspace scanners
-│   ├── Caching/          MessagePack caches — C# segment + independent TS segment
-│   ├── Indexing/         Snapshot-swap store, C#+TS merge, dependency & mention graphs, file watcher
-│   ├── Internal/         Ranking, output-shaping, structural search, call hierarchy, config, path security
-│   └── Mcp/              The 18 MCP tool implementations
-├── tests/CodeIndex.Tests/       xUnit unit tests over an in-memory file system
-└── benchmarks/CodeIndex.Benchmarks/   BenchmarkDotNet startup / parse / cache / search benchmarks
+```bash
+git clone https://github.com/acikeldev/CodeIndex.git
+cd CodeIndex
+dotnet build CodeIndex.slnx -c Release
 ```
 
-## Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| ModelContextProtocol | Official C# MCP SDK |
-| Microsoft.Extensions.Hosting | DI and host lifecycle |
-| Microsoft.CodeAnalysis.CSharp | Roslyn — C# syntax parsing |
-| TreeSitter.DotNet | tree-sitter — TS/TSX/SCSS parsing (bundled native grammars) |
-| MessagePack | Binary cache serialization |
+Full setup — global-tool vs built-DLL, `.mcp.json` for every client, the `CLAUDE.md` snippet that makes your
+agent reach for these tools, and per-repo `codeindex.json` options — is in **[docs/INSTALL.md](docs/INSTALL.md)**.
 
 ## License
 
