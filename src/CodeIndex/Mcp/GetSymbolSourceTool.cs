@@ -10,13 +10,13 @@ namespace CodeIndex.Mcp;
 public static class GetSymbolSourceTool
 {
     [McpServerTool(Name = "get_symbol_source")]
-    [Description("Read actual source code lines from a file. Use line numbers from search_symbol or get_file_outline results. Only files that are indexed or inside the repository can be read.")]
+    [Description("Read source lines from a file, using line numbers from search_symbol or get_file_outline. Only indexed or in-repo files can be read.")]
     public static string GetSymbolSource(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Source file path (from search results) or filename")] string file,
-        [Description("Starting line number (1-based)")] int startLine,
-        [Description("Number of lines to read")] int lineCount)
+        [Description("File path (from search results) or filename")] string file,
+        [Description("Start line (1-based)")] int startLine,
+        [Description("Lines to read")] int lineCount)
     {
         string filePath = file;
         if (!Path.IsPathRooted(file) || !fileSystem.FileExists(file))

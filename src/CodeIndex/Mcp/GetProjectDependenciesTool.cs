@@ -13,11 +13,11 @@ public static class GetProjectDependenciesTool
     private const int DefaultDependentsShown = 15;
 
     [McpServerTool(Name = "get_project_dependencies")]
-    [Description("Get project-level dependencies: what a project references and what references it. Uses the index-time dependency graph (exact project-name matching). The reverse-dependents list is truncated by default — pass full=true for all of them.")]
+    [Description("Project-level dependencies: what a project references and what references it, from the index-time graph (exact project-name matching). The reverse-dependents list is truncated by default — pass full=true for all.")]
     public static string GetProjectDependencies(
         ICodeIndexStore index,
-        [Description("Project name (e.g., 'MyApp.Core')")] string project,
-        [Description("List every dependent (default false shows the first 15 with a count)")] bool full = false)
+        [Description("Project name")] string project,
+        [Description("List every dependent (default false shows first 15 with a count)")] bool full = false)
     {
         ProjectDependencyInfo? info = index.GetProjectDependencyInfo(project);
         if (info is null)

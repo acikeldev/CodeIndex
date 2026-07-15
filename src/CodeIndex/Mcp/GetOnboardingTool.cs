@@ -22,7 +22,7 @@ public static class GetOnboardingTool
     private const int RepoMapBudget = 1500;
 
     [McpServerTool(Name = "get_onboarding")]
-    [Description("One-call repo orientation for a fresh session: projects, the most important symbols (PageRank-ranked), and where to start — assembled once and cached (keyed to the index build, so it refreshes when the code changes). Prefer this over separate repo_info + repo_map probes when you're new to the repo.")]
+    [Description("One-call repo orientation for a fresh session: projects, most important symbols (PageRank), and where to start — cached and keyed to the index build (refreshes when code changes). Prefer over separate repo_info + repo_map when you're new to the repo.")]
     public static string GetOnboarding(ICodeIndexStore index, IFileSystem fileSystem)
     {
         string signature = Signature(index);

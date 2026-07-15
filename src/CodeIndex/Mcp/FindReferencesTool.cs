@@ -11,16 +11,16 @@ namespace CodeIndex.Mcp;
 public static class FindReferencesTool
 {
     [McpServerTool(Name = "find_references")]
-    [Description("Find all source lines referencing a symbol across indexed C# files. Smarter than grep: scoped to indexed files, word-boundary match so 'User' does not match 'UserId', skips '//' line comments. Output is GROUPED BY FILE with a leading file-frequency summary (breadth in one call) and true totals; generated files (designer.cs/Reference.cs/*.g.cs) are demoted — pass includeGenerated=true to promote them. Use to answer 'who calls X?' / 'where is X used?'.")]
+    [Description("Where a symbol is used across indexed C# files ('who calls X?'). Smarter than grep: word-boundary match so 'User' won't hit 'UserId', skips '//' comments. Grouped by file with a frequency summary and true totals; generated files (designer.cs/Reference.cs/*.g.cs) are demoted unless includeGenerated=true.")]
     public static string FindReferences(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Symbol name to search for (e.g., 'GetItems', 'MergeRecords')")] string symbol,
-        [Description("Optional project filter (e.g., 'MyApp.Core')")] string? project = null,
-        [Description("Lines of context before and after each match, like grep -C (default 0)")] int contextLines = 0,
-        [Description("Max sample lines to emit across all files (default 30)")] int max = 30,
-        [Description("Max sample lines shown per file (default 3); the true per-file count is still reported")] int perFileMax = 3,
-        [Description("Include generated files (designer.cs/Reference.cs/*.g.cs) in the ranked body (default false — they stay in the summary regardless)")] bool includeGenerated = false)
+        [Description("Symbol name")] string symbol,
+        [Description("Optional project filter")] string? project = null,
+        [Description("Lines of context around each match, like grep -C (default 0)")] int contextLines = 0,
+        [Description("Max sample lines across all files (default 30)")] int max = 30,
+        [Description("Max sample lines per file (default 3); true count still reported")] int perFileMax = 3,
+        [Description("Promote generated files (designer.cs/Reference.cs/*.g.cs) into the ranked body (default false; they stay in the summary regardless)")] bool includeGenerated = false)
     {
         Regex wordBoundary = GetWordBoundaryRegex(symbol);
 

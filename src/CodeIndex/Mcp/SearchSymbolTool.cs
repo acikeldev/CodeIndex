@@ -22,15 +22,15 @@ public static class SearchSymbolTool
     };
 
     [McpServerTool(Name = "search_symbol")]
-    [Description("Find symbols by name across all indexed C# projects. Default returns compact one-line format. Use detail='full' for JSON with namespace, project, parentType, sourceFilePath. Use token_budget to cap response size.")]
+    [Description("Find symbols by name across indexed C# projects. Default is compact one-line rows; detail='full' returns JSON with namespace, project, parentType, sourceFilePath. token_budget caps response size.")]
     public static string SearchSymbol(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Search query - case-insensitive match against symbol names")] string query,
+        [Description("Search query; case-insensitive match on symbol names")] string query,
         [Description("Optional kind filter: class, struct, record, interface, enum, method, property, field, constructor, event")] string? kind = null,
-        [Description("Optional project name filter (e.g., 'MyApp.Core')")] string? project = null,
-        [Description("'compact' (default) = one-line per result, 'full' = JSON with all metadata")] string detail = "compact",
-        [Description("Token budget for the result-row body; rows are packed until it's exhausted (overrides the default 50-row cap). When set, the speculative source appendix is skipped.")] int? tokenBudget = null)
+        [Description("Optional project filter")] string? project = null,
+        [Description("'compact' (default) = one line per result; 'full' = JSON with all metadata")] string detail = "compact",
+        [Description("Token budget for result rows; packed until exhausted (overrides the 50-row cap). When set, the speculative source appendix is skipped")] int? tokenBudget = null)
     {
         if (kind is not null && !KindFilter.IsValidSymbolKind(kind))
         {

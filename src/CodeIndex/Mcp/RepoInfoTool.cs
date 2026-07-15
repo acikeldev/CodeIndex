@@ -15,11 +15,11 @@ namespace CodeIndex.Mcp;
 public static class RepoInfoTool
 {
     [McpServerTool(Name = "repo_info")]
-    [Description("Repo overview + index health. No argument: indexed projects (with file counts) + what's indexed, how/when the index was built (full/delta/cache), cache path + schema version, and the repo root. Pass project= to list that project's source files instead. Answers 'what's here?' and 'is my index fresh/complete?'.")]
+    [Description("Repo overview + index health. No argument: indexed projects with file counts, how/when the index was built (full/delta/cache), cache path + schema version, repo root. Pass project= to list that project's source files instead. Answers 'what's here?' and 'is my index fresh?'")]
     public static string RepoInfo(
         ICodeIndexStore index,
         ICodeIndexCache cache,
-        [Description("Optional project name (e.g., 'MyApp.Core') — list its source files instead of the overview.")] string? project = null)
+        [Description("Optional project; lists its source files instead of the overview")] string? project = null)
     {
         if (project is not null)
         {

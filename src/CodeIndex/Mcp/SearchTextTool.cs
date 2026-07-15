@@ -11,18 +11,18 @@ namespace CodeIndex.Mcp;
 public static class SearchTextTool
 {
     [McpServerTool(Name = "search_text")]
-    [Description("Full-text search across all indexed C# source files (regex supported). Use for config keys, error messages, SQL fragments, string literals, TODOs — anything that isn't a symbol name. Output is GROUPED BY FILE with a leading file-frequency summary and true totals; generated files (designer.cs/Reference.cs/*.g.cs) are demoted — pass includeGenerated=true to promote. Skips bin/obj/node_modules.")]
+    [Description("Full-text/regex search across indexed C# files — for config keys, error messages, SQL, string literals, TODOs: anything that isn't a symbol name (use search_symbol for those). Grouped by file with a frequency summary and true totals; generated files (designer.cs/Reference.cs/*.g.cs) demoted unless includeGenerated=true.")]
     public static string SearchText(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Text or regex pattern to search for")] string query,
-        [Description("Optional project filter (e.g., 'MyApp.Core')")] string? project = null,
-        [Description("Treat query as regex pattern (default false)")] bool isRegex = false,
-        [Description("Case-insensitive search (default false)")] bool ignoreCase = false,
-        [Description("Lines of context before and after each match, like grep -C (default 0)")] int contextLines = 0,
-        [Description("Max sample lines to emit across all files (default 30)")] int max = 30,
-        [Description("Max sample lines shown per file (default 3); the true per-file count is still reported")] int perFileMax = 3,
-        [Description("Include generated files in the ranked body (default false — they stay in the summary regardless)")] bool includeGenerated = false)
+        [Description("Text or regex to search for")] string query,
+        [Description("Optional project filter")] string? project = null,
+        [Description("Treat query as regex (default false)")] bool isRegex = false,
+        [Description("Case-insensitive (default false)")] bool ignoreCase = false,
+        [Description("Lines of context around each match, like grep -C (default 0)")] int contextLines = 0,
+        [Description("Max sample lines across all files (default 30)")] int max = 30,
+        [Description("Max sample lines per file (default 3); true count still reported")] int perFileMax = 3,
+        [Description("Promote generated files into the ranked body (default false; they stay in the summary regardless)")] bool includeGenerated = false)
     {
         Func<string, bool> matcher = BuildMatcher(query, isRegex, ignoreCase, out string? error);
         if (error is not null)

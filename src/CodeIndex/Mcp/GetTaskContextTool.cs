@@ -29,11 +29,11 @@ public static class GetTaskContextTool
     };
 
     [McpServerTool(Name = "get_task_context")]
-    [Description("Task-conditioned orientation for the START of an unfamiliar task: given a free-text task, returns the repo-relevant symbols (PageRank focused on the task's terms) + a dossier for the strongest anchor, on top of the cached repo onboarding. Best-effort LOCAL retrieval (no embeddings): when it can't anchor the task to real symbols it says so and returns plain orientation rather than a confident guess.")]
+    [Description("Task-conditioned orientation at the START of an unfamiliar task: from a free-text task, returns repo-relevant symbols (PageRank focused on the task's terms) + a dossier for the strongest anchor + the cached onboarding. Best-effort LOCAL retrieval (no embeddings): when it can't anchor to real symbols it says so and returns plain orientation, not a confident-but-wrong guess.")]
     public static string GetTaskContext(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Free-text task description, e.g. 'add rate limiting to the login endpoint'")] string task)
+        [Description("Free-text task description")] string task)
     {
         string repoBase = GetOnboardingTool.GetOnboarding(index, fileSystem);
         List<string> anchors = MatchAnchors(index, task);

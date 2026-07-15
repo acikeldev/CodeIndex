@@ -11,15 +11,11 @@ namespace CodeIndex.Mcp;
 public static class ResolveBareNameTool
 {
     [McpServerTool(Name = "resolve_bare_name")]
-    [Description("Resolve what a BARE (unqualified) type name binds to when written in a given file, using that " +
-        "file's usings + aliases. Answers 'if I write `User` in MyType.cs, which fully-qualified " +
-        "type is it?' and whether it is AMBIGUOUS (same short name in two imported namespaces). Syntax+index based " +
-        "(no semantic model), but sufficient for a bare type-name binding question. Also lists definitions " +
-        "that exist but are NOT imported in the file, so you can see e.g. a same-named type in another namespace.")]
+    [Description("Resolve what a BARE (unqualified) type name binds to in a given file, using its usings + aliases — the fully-qualified type, or whether it is AMBIGUOUS (same short name in two imported namespaces). Syntax+index based (no semantic model). Also lists matching types NOT imported here, so you can spot a same-named type in another namespace.")]
     public static string ResolveBareName(
         ICodeIndexStore index,
-        [Description("File the name is written in — a file name ('MyType.cs') or a full path")] string file,
-        [Description("The bare/unqualified identifier to resolve (e.g. 'User')")] string identifier)
+        [Description("File the name is written in — filename or full path")] string file,
+        [Description("Bare/unqualified identifier to resolve")] string identifier)
     {
         BareNameResolution r = index.ResolveBareName(file, identifier);
 

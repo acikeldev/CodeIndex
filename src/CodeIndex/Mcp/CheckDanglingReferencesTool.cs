@@ -8,10 +8,10 @@ namespace CodeIndex.Mcp;
 public static class CheckDanglingReferencesTool
 {
     [McpServerTool(Name = "check_dangling_references")]
-    [Description("For a TypeScript/TSX file: report UNUSED imports (imported but never referenced) and possibly-MISSING imports (a PascalCase identifier used in the file that is neither imported nor declared here, yet is a real project symbol defined in another indexed TS file — the classic post-merge build break where an import was dropped but a use of it remained). Syntactic + index-confirmed heuristic; C# only supports resolve_bare_name instead.")]
+    [Description("For a TS/TSX file: report UNUSED imports and possibly-MISSING imports — a PascalCase identifier used but neither imported nor declared here, yet defined in another indexed TS file (the classic post-merge break where an import was dropped but its use remained). Syntactic + index-confirmed heuristic; for C# use resolve_bare_name instead.")]
     public static string CheckDanglingReferences(
         ICodeIndexStore index,
-        [Description("TS/TSX file to check — filename ('MyStore.ts') or full path.")] string file)
+        [Description("TS/TSX file to check — filename or full path")] string file)
     {
         return index.CheckDanglingReferences(file);
     }

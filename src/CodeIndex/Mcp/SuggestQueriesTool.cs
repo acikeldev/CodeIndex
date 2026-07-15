@@ -10,7 +10,7 @@ namespace CodeIndex.Mcp;
 public static class SuggestQueriesTool
 {
     [McpServerTool(Name = "suggest_queries")]
-    [Description("Get index overview and suggested search queries. Great first call when starting to explore a codebase — shows top projects, largest files, type distribution, and ready-to-run example queries.")]
+    [Description("Index overview + ready-to-run example queries: top projects, largest files, type distribution. Good first call when exploring a codebase.")]
     public static string SuggestQueries(ICodeIndexStore index)
     {
         StringBuilder sb = new();

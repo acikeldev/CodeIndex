@@ -8,12 +8,12 @@ namespace CodeIndex.Mcp;
 public static class RepoMapTool
 {
     [McpServerTool(Name = "repo_map")]
-    [Description("Ranked, token-budgeted overview of the MOST IMPORTANT symbols in the codebase — computed by PageRank over a symbol-mention graph (which files reference symbols defined in which other files). Great as a FIRST call to orient in an unfamiliar codebase, or pass focus= (comma-separated file or symbol names) to get the symbols most relevant to a specific task (personalized ranking). Generated files are excluded. Complements search_symbol (you know the name) — repo_map answers 'what matters here?'.")]
+    [Description("Token-budgeted, PageRank-ranked overview of the MOST IMPORTANT symbols in the repo. Good FIRST call to orient in an unfamiliar codebase; pass focus= (comma-separated files/symbols) for the symbols most relevant to a task. Generated files excluded. Answers 'what matters here?' where search_symbol needs a name.")]
     public static string RepoMap(
         ICodeIndexStore index,
-        [Description("Optional comma-separated file or symbol names to focus ranking on (personalized PageRank). Empty = global importance across the whole repo.")] string? focus = null,
-        [Description("Approximate token budget for the output (default 2000; capped at 20000).")] int tokenBudget = 2000,
-        [Description("Optional project filter (e.g., 'MyApp.Core') — limits the OUTPUT to that project; the whole graph still informs ranking.")] string? project = null)
+        [Description("Optional comma-separated files/symbols to focus ranking on; empty = global importance")] string? focus = null,
+        [Description("Approx output token budget (default 2000, max 20000)")] int tokenBudget = 2000,
+        [Description("Optional project filter; limits OUTPUT to that project, whole graph still informs ranking")] string? project = null)
     {
         IReadOnlyList<string> focusList = string.IsNullOrWhiteSpace(focus)
             ? []

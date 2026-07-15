@@ -15,12 +15,12 @@ public static class GetFileOutlineTool
     private const int MaxOutlineChars = 48_000;
 
     [McpServerTool(Name = "get_file_outline")]
-    [Description("Get all types and members of a source file with signatures and line numbers. Accepts full or partial filename. Very large files degrade to a types-only summary (call get_type_members for a specific type). Pass typesOnly=true to force the summary.")]
+    [Description("All types and members of a source file with signatures and line numbers. Accepts a full or partial filename. Very large files degrade to a types-only summary (then get_type_members for a type); typesOnly=true forces that summary.")]
     public static string GetFileOutline(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Filename to look up (e.g., 'Constants.cs' or 'MyService.svc.cs')")] string file,
-        [Description("Return only the type list with per-type member counts (default false)")] bool typesOnly = false)
+        [Description("Filename to look up (full or partial)")] string file,
+        [Description("Return only the type list with member counts (default false)")] bool typesOnly = false)
     {
         SourceFileIndex? result = index.GetFileOutline(file);
         if (result is null)
