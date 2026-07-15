@@ -114,7 +114,15 @@ internal static class GroupedMatchOutput
     }
 
     private static string RelPath(ParallelScanner.FileHits h, IReadOnlyDictionary<string, string> projectDirByName) =>
-        projectDirByName.TryGetValue(h.ProjectName, out string? dir)
-            ? Path.GetRelativePath(dir, h.SourceFilePath).Replace('\\', '/')
-            : h.FileName;
+        RelPath(h.SourceFilePath, h.ProjectName, projectDirByName);
+
+    /// <summary>
+    /// Project-relative, forward-slashed path for <paramref name="sourceFilePath"/> — the SAME logic the References
+    /// section's file headers use — so type-scoped tools (get_class_hierarchy) render paths CONSISTENT with
+    /// find_references / search_text. Falls back to the bare filename when the project directory is unknown.
+    /// </summary>
+    internal static string RelPath(string sourceFilePath, string projectName, IReadOnlyDictionary<string, string> projectDirByName) =>
+        projectDirByName.TryGetValue(projectName, out string? dir)
+            ? Path.GetRelativePath(dir, sourceFilePath).Replace('\\', '/')
+            : Path.GetFileName(sourceFilePath);
 }

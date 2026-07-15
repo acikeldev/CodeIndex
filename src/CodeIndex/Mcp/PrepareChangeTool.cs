@@ -19,13 +19,13 @@ public static class PrepareChangeTool
     private const int RefPerFile = 5;
 
     [McpServerTool(Name = "prepare_change")]
-    [Description("One-call edit briefing for a symbol you're about to change: its definition source, every call site (find_references, widened), enclosing-member-labelled callers (call_hierarchy), and — for a type/interface — implementors/overrides (get_class_hierarchy). One response instead of the pre-edit multi-tool sweep. Pass namespace=/project= to disambiguate.")]
+    [Description("One-call edit briefing for a symbol you're about to change: its definition, every call site (widened find_references), enclosing-member-labelled callers, and — for a type/interface — implementors/overrides. The full blast radius in one response instead of a pre-edit multi-tool sweep. Pass namespace=/project= to disambiguate.")]
     public static string PrepareChange(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Symbol name — a type ('MyService', 'IFileSystem') or a method/member ('GetItems')")] string symbol,
-        [Description("Optional namespace to disambiguate (full or trailing segment, e.g. 'Models')")] string? @namespace = null,
-        [Description("Optional project name to disambiguate (e.g., 'MyApp.Core')")] string? project = null)
+        [Description("Symbol name — a type or a method/member")] string symbol,
+        [Description("Optional namespace to disambiguate (full or trailing segment)")] string? @namespace = null,
+        [Description("Optional project to disambiguate")] string? project = null)
     {
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, symbol, @namespace, project, out string? error);
         if (resolved is not null)
@@ -62,6 +62,6 @@ public static class PrepareChangeTool
             ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project, max: RefMax, perFileMax: RefPerFile)),
             ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
         };
-        return DossierBuilder.Assemble($"# prepare_change: {best.Signature ?? best.Name} [{best.File}:{best.StartLine}+{best.LineCount}] ({best.Project})", memberSections);
+        return DossierBuilder.Assemble($"# prepare_change: {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, index.ProjectDirsByName())}:{best.StartLine}+{best.LineCount}] ({best.Project})", memberSections);
     }
 }

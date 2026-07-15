@@ -15,13 +15,13 @@ namespace CodeIndex.Mcp;
 public static class ExplainSymbolTool
 {
     [McpServerTool(Name = "explain_symbol")]
-    [Description("One-call symbol dossier: resolves a symbol and returns — for a type — its identity + members + inheritance + source + references, or — for a method/member — its source + references + callers, in a SINGLE response. Use instead of hand-running search_symbol → get_type_members → get_symbol_source → find_references. Pass namespace= or project= to disambiguate; for an editing task use prepare_change instead.")]
+    [Description("One-call symbol dossier in a SINGLE response — for a type: members + inheritance + source + references; for a method/member: source + references + callers. Use instead of hand-running search_symbol → get_type_members → get_symbol_source → find_references. Pass namespace=/project= to disambiguate; for an edit use prepare_change instead.")]
     public static string ExplainSymbol(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Symbol name — a type ('MyService', 'IFileSystem') or a method/member ('GetItems')")] string symbol,
-        [Description("Optional namespace to disambiguate (full or trailing segment, e.g. 'Models')")] string? @namespace = null,
-        [Description("Optional project name to disambiguate (e.g., 'MyApp.Core')")] string? project = null)
+        [Description("Symbol name — a type or a method/member")] string symbol,
+        [Description("Optional namespace to disambiguate (full or trailing segment)")] string? @namespace = null,
+        [Description("Optional project to disambiguate")] string? project = null)
     {
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, symbol, @namespace, project, out string? error);
         if (resolved is not null)
@@ -70,6 +70,6 @@ public static class ExplainSymbolTool
             ("References", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project)),
             ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
         };
-        return DossierBuilder.Assemble($"# explain_symbol: {best.Signature ?? best.Name} [{best.File}:{best.StartLine}+{best.LineCount}] ({best.Project}){note}", sections);
+        return DossierBuilder.Assemble($"# explain_symbol: {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, index.ProjectDirsByName())}:{best.StartLine}+{best.LineCount}] ({best.Project}){note}", sections);
     }
 }

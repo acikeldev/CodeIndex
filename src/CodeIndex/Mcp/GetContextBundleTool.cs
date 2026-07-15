@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text;
 using CodeIndex.Abstractions;
+using CodeIndex.Internal;
 using CodeIndex.Models;
 using ModelContextProtocol.Server;
 
@@ -10,11 +11,11 @@ namespace CodeIndex.Mcp;
 public static class GetContextBundleTool
 {
     [McpServerTool(Name = "get_context_bundle")]
-    [Description("Get full source code for multiple symbols in one call. Efficient for loading related symbols together — deduplicates when symbols share a file. Pass comma-separated symbol names.")]
+    [Description("Full source for multiple symbols in one call; dedupes symbols that share a file. Pass comma-separated names.")]
     public static string GetContextBundle(
         ICodeIndexStore index,
         IFileSystem fileSystem,
-        [Description("Comma-separated symbol names (e.g., 'GetItems,MergeRecords,DeleteItems')")] string symbols)
+        [Description("Comma-separated symbol names")] string symbols)
     {
         string[] names = symbols.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (names.Length == 0)
@@ -23,6 +24,7 @@ public static class GetContextBundleTool
         }
 
         // Resolve each symbol to its best match
+        IReadOnlyDictionary<string, string> projectDirs = index.ProjectDirsByName();
         StringBuilder sb = new();
         HashSet<string> filesRead = new(StringComparer.OrdinalIgnoreCase);
         int found = 0;
@@ -41,7 +43,7 @@ public static class GetContextBundleTool
             SymbolSearchResult best = results[0];
             found++;
 
-            sb.AppendLine($"# {best.Signature ?? best.Name} [{best.File}:{best.StartLine}+{best.LineCount}] ({best.Project})");
+            sb.AppendLine($"# {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, projectDirs)}:{best.StartLine}+{best.LineCount}] ({best.Project})");
             if (best.Namespace is not null)
             {
                 sb.AppendLine($"Namespace: {best.Namespace}");

@@ -34,6 +34,14 @@ public sealed class GetClassHierarchyToolTests
         // Two same-named types in different namespaces to exercise the ambiguity path.
         _fs.AddFile(@"C:\repo\P\WidgetA.cs", "namespace N1; public class Widget { }");
         _fs.AddFile(@"C:\repo\P\WidgetB.cs", "namespace N2; public class Widget { }");
+
+        // A hierarchy in a SUBFOLDER so the rendered path (Sub/Gadgets.cs) differs from the bare filename —
+        // regression guard that get_class_hierarchy renders the project-relative path, not just the filename.
+        _fs.AddFile(@"C:\repo\P\Sub\Gadgets.cs", """
+            namespace N3;
+            public interface IGadget { }
+            public class Gizmo : IGadget { }
+            """);
     }
 
     private CodeIndexStore BuildStore()
@@ -60,6 +68,19 @@ public sealed class GetClassHierarchyToolTests
         // Circle sorts before Square.
         output.IndexOf("Circle", StringComparison.Ordinal)
             .Should().BeLessThan(output.IndexOf("Square", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Implementor_RendersProjectRelativePath_NotBareFilename()
+    {
+        CodeIndexStore store = BuildStore();
+
+        string output = GetClassHierarchyTool.GetClassHierarchy(store, "IGadget");
+
+        // Subfolder file -> project-relative, forward-slashed path (consistent with the References section),
+        // never the bare filename that made a path-seeking task re-fetch each implementor.
+        output.Should().Contain("class Gizmo : IGadget [Sub/Gadgets.cs:");
+        output.Should().NotContain("[Gadgets.cs:");
     }
 
     [Fact]

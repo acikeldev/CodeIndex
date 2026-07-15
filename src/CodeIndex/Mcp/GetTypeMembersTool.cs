@@ -11,13 +11,13 @@ namespace CodeIndex.Mcp;
 public static class GetTypeMembersTool
 {
     [McpServerTool(Name = "get_type_members")]
-    [Description("Get all members of a type by name. Returns constructors, properties, fields, events, and methods with signatures and line numbers. Faster than search_symbol when you know the type name. When several types share the name, pass namespace= or project= to disambiguate; partial types declared across files are merged.")]
+    [Description("All members of a type — constructors, properties, fields, events, methods with signatures and line numbers. Faster than search_symbol when you know the type name; partial types across files are merged. Pass namespace=/project= to disambiguate a shared name.")]
     public static string GetTypeMembers(
         ICodeIndexStore index,
-        [Description("Type name (e.g., 'MyService', 'Constants')")] string type,
+        [Description("Type name")] string type,
         [Description("Optional member kind filter: method, property, field, constructor, event")] string? kind = null,
-        [Description("Optional namespace to disambiguate (full or trailing segment, e.g. 'Models')")] string? @namespace = null,
-        [Description("Optional project name to disambiguate (e.g., 'MyApp.Core')")] string? project = null)
+        [Description("Optional namespace to disambiguate (full or trailing segment)")] string? @namespace = null,
+        [Description("Optional project to disambiguate")] string? project = null)
     {
         if (kind is not null && !KindFilter.IsValidMemberKind(kind))
         {
@@ -30,10 +30,11 @@ public static class GetTypeMembersTool
             return error!;
         }
 
+        IReadOnlyDictionary<string, string> projectDirs = index.ProjectDirsByName();
         StringBuilder sb = new();
         string inheritance = resolved.BaseTypesDisplay is not null ? $" : {resolved.BaseTypesDisplay}" : string.Empty;
         string parts = resolved.PartCount > 1 ? $" (partial: {resolved.PartCount} files)" : string.Empty;
-        sb.AppendLine($"# {resolved.TypeKeyword} {resolved.Name}{inheritance} [{resolved.DisplayFile}:{resolved.StartLine}+{resolved.LineCount}] ({resolved.Project}){parts}");
+        sb.AppendLine($"# {resolved.TypeKeyword} {resolved.Name}{inheritance} [{GroupedMatchOutput.RelPath(resolved.SourceFilePath, resolved.Project, projectDirs)}:{resolved.StartLine}+{resolved.LineCount}] ({resolved.Project}){parts}");
 
         IEnumerable<MemberInfo> members = resolved.Members;
         if (kind is not null)

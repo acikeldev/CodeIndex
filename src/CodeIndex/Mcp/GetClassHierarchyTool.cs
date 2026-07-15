@@ -11,12 +11,12 @@ namespace CodeIndex.Mcp;
 public static class GetClassHierarchyTool
 {
     [McpServerTool(Name = "get_class_hierarchy")]
-    [Description("Get inheritance hierarchy for a type: base types (up) and derived types / implementors (down). Use to find all classes implementing an interface or extending a base class. Pass namespace= or project= to disambiguate when several types share the name.")]
+    [Description("Inheritance hierarchy for a type: base types (up), derived types/implementors (down). Use to find all implementors of an interface or subclasses of a base type. Pass namespace=/project= to disambiguate a shared name.")]
     public static string GetClassHierarchy(
         ICodeIndexStore index,
-        [Description("Type name (e.g., 'IMyService', 'MyService')")] string type,
-        [Description("Optional namespace to disambiguate (full or trailing segment, e.g. 'Models')")] string? @namespace = null,
-        [Description("Optional project name to disambiguate (e.g., 'MyApp.Core')")] string? project = null)
+        [Description("Type name")] string type,
+        [Description("Optional namespace to disambiguate (full or trailing segment)")] string? @namespace = null,
+        [Description("Optional project to disambiguate")] string? project = null)
     {
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, type, @namespace, project, out string? error);
         if (resolved is null)
@@ -24,8 +24,10 @@ public static class GetClassHierarchyTool
             return error!;
         }
 
+        IReadOnlyDictionary<string, string> projectDirs = index.ProjectDirsByName();
+
         StringBuilder sb = new();
-        sb.AppendLine($"# {resolved.TypeKeyword} {resolved.Name} [{resolved.DisplayFile}:{resolved.StartLine}+{resolved.LineCount}] ({resolved.Project})");
+        sb.AppendLine($"# {resolved.TypeKeyword} {resolved.Name} [{GroupedMatchOutput.RelPath(resolved.SourceFilePath, resolved.Project, projectDirs)}:{resolved.StartLine}+{resolved.LineCount}] ({resolved.Project})");
 
         if (resolved.BaseTypesDisplay is not null)
         {
@@ -42,7 +44,7 @@ public static class GetClassHierarchyTool
             foreach ((TypeInfo dt, SourceFileIndex df) in derived.OrderBy(d => d.Type.Name))
             {
                 string bases = dt.BaseTypesDisplay is not null ? $" : {dt.BaseTypesDisplay}" : string.Empty;
-                sb.AppendLine($"  {dt.TypeKeyword} {dt.Name}{bases} [{df.FileName}:{dt.StartLine}+{dt.LineCount}] ({df.ProjectName})");
+                sb.AppendLine($"  {dt.TypeKeyword} {dt.Name}{bases} [{GroupedMatchOutput.RelPath(df.SourceFilePath, df.ProjectName, projectDirs)}:{dt.StartLine}+{dt.LineCount}] ({df.ProjectName})");
             }
         }
         else
