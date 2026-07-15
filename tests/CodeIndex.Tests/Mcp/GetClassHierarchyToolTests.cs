@@ -29,6 +29,7 @@ public sealed class GetClassHierarchyToolTests
             public class Square : IShape { }
             public class Animal { }
             public class Dog : Animal { }
+            public class SmallCircle : Circle { }
             """);
 
         // Two same-named types in different namespaces to exercise the ambiguity path.
@@ -41,6 +42,14 @@ public sealed class GetClassHierarchyToolTests
             namespace N3;
             public interface IGadget { }
             public class Gizmo : IGadget { }
+            """);
+
+        // An inheritance CYCLE (illegal C#, but the syntax-only index can hold it) so the transitive walk's
+        // cycle guard is exercised: it must terminate and never list the root as its own descendant.
+        _fs.AddFile(@"C:\repo\P\Cycle.cs", """
+            namespace N4;
+            public class Ouro : Boros { }
+            public class Boros : Ouro { }
             """);
     }
 
@@ -81,6 +90,40 @@ public sealed class GetClassHierarchyToolTests
         // never the bare filename that made a path-seeking task re-fetch each implementor.
         output.Should().Contain("class Gizmo : IGadget [Sub/Gadgets.cs:");
         output.Should().NotContain("[Gadgets.cs:");
+    }
+
+    [Fact]
+    public void Transitive_IncludesGrandchildrenWithDepthTags()
+    {
+        CodeIndexStore store = BuildStore();
+
+        string direct = GetClassHierarchyTool.GetClassHierarchy(store, "IShape");
+        string transitive = GetClassHierarchyTool.GetClassHierarchy(store, "IShape", transitive: true);
+
+        // Direct: only the one-hop implementors — no grandchild, no depth tags.
+        direct.Should().Contain("Derived/Implementors (2):");
+        direct.Should().NotContain("SmallCircle");
+        direct.Should().NotContain("[d1]");
+
+        // Transitive: the whole subtree with depth markers — Circle/Square at d1, SmallCircle (Circle's child) at d2.
+        transitive.Should().Contain("Derived/Implementors (transitive) — 3 across 2 level(s):");
+        transitive.Should().Contain("[d1] class Circle : IShape [Shapes.cs");
+        transitive.Should().Contain("[d1] class Square : IShape [Shapes.cs");
+        transitive.Should().Contain("[d2] class SmallCircle : Circle [Shapes.cs");
+    }
+
+    [Fact]
+    public void Transitive_CycleTerminatesAndDoesNotSelfList()
+    {
+        CodeIndexStore store = BuildStore();
+
+        string output = GetClassHierarchyTool.GetClassHierarchy(store, "Ouro", transitive: true);
+
+        // Boros (Ouro's one descendant) is listed once at depth 1; the cycle back to Ouro must terminate and
+        // must NOT list the root as its own descendant entry.
+        output.Should().Contain("Derived/Implementors (transitive) — 1 across 1 level(s):");
+        output.Should().Contain("[d1] class Boros : Ouro [Cycle.cs");
+        output.Should().NotContain("class Ouro : Boros");
     }
 
     [Fact]
