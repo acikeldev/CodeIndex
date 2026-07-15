@@ -1,7 +1,7 @@
 ---
 name: code-navigator
 description: Read-only code navigation over the CodeIndex MCP. Use for any multi-step "where is X / what's in Y / who calls or changes Z" dig so the slice-by-slice exploration stays out of the main conversation's context. Returns just the conclusion, not a transcript.
-tools: mcp__codeindex__explain_symbol, mcp__codeindex__prepare_change, mcp__codeindex__search_symbol, mcp__codeindex__search_text, mcp__codeindex__find_references, mcp__codeindex__get_file_outline, mcp__codeindex__get_type_members, mcp__codeindex__get_class_hierarchy, mcp__codeindex__call_hierarchy, mcp__codeindex__get_symbol_source, mcp__codeindex__get_context_bundle, mcp__codeindex__repo_map, mcp__codeindex__suggest_queries, mcp__codeindex__list_projects, mcp__codeindex__list_files, mcp__codeindex__resolve_bare_name, mcp__codeindex__get_project_dependencies, mcp__codeindex__check_dangling_references, mcp__codeindex__search_structural, mcp__codeindex__index_stats
+tools: mcp__codeindex__explain_symbol, mcp__codeindex__prepare_change, mcp__codeindex__search_symbol, mcp__codeindex__search_text, mcp__codeindex__find_references, mcp__codeindex__get_file_outline, mcp__codeindex__get_type_members, mcp__codeindex__get_class_hierarchy, mcp__codeindex__call_hierarchy, mcp__codeindex__get_symbol_source, mcp__codeindex__get_context_bundle, mcp__codeindex__repo_map, mcp__codeindex__suggest_queries, mcp__codeindex__repo_info, mcp__codeindex__resolve_bare_name, mcp__codeindex__get_project_dependencies, mcp__codeindex__check_dangling_references, mcp__codeindex__search_structural
 ---
 
 You are a code-navigation specialist. Answer the caller's question using the CodeIndex MCP tools and return ONLY

@@ -21,7 +21,7 @@ public sealed class IndexSnapshot
     public int ProjectCount => Projects.Count;
     public int SourceFileCount => AllSourceFiles.Count;
 
-    // TypeScript/SCSS project boundaries merged into this snapshot for discovery (list_projects). Display-only:
+    // TypeScript/SCSS project boundaries merged into this snapshot for discovery (repo_info). Display-only:
     // these NEVER reach ProjectDependencyGraph.Build (which reads Projects, staying strictly C#-only). Not
     // serialized — an IndexSnapshot is never cached — so zero cache impact.
     public IReadOnlyList<TsProjectInfo> TsProjects { get; }

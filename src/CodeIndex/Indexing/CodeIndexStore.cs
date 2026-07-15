@@ -647,7 +647,7 @@ internal sealed class CodeIndexStore : ICodeIndexStore
     }
 
     // Unified project view for the discovery tools: the real C# ProjectIndex entries plus a synthesized entry per
-    // TS/SCSS project (its SourceFiles = that project's TS/SCSS file paths, so list_files works). C# wins on a name
+    // TS/SCSS project (its SourceFiles = that project's TS/SCSS file paths, so repo_info file listing works). C# wins on a name
     // collision. Built on demand from the snapshot — only the occasional project tools call it.
     private static Dictionary<string, ProjectIndex> UnifiedProjects(IndexSnapshot snap)
     {
@@ -682,7 +682,7 @@ internal sealed class CodeIndexStore : ICodeIndexStore
             }
 
             // Store project-relative, forward-slashed paths — matching the C# ProjectIndex.SourceFiles shape
-            // (SnapshotBuilder.AddProjects) so list_files emits one consistent path form across languages.
+            // (SnapshotBuilder.AddProjects) so repo_info emits one consistent path form across languages.
             List<string> sourceFiles = tsFilesByProject.TryGetValue(tp.Name, out List<string>? abs)
                 ? abs.Select(p => Path.GetRelativePath(tp.ProjectDirPath, p).Replace('\\', '/')).ToList()
                 : [];

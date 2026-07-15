@@ -72,7 +72,7 @@ public sealed class GetProjectDependenciesToolTests
         output.Should().StartWith("Project 'Cor' not found.");
         output.Should().Contain("Did you mean");
         output.Should().Contain("Core");
-        output.Should().Contain("Try list_projects for the exact project names.");
+        output.Should().Contain("Try repo_info for the exact project names.");
     }
 
     /// <summary>17 leaf projects each reference the same Shared project, so it has 17 dependents.</summary>

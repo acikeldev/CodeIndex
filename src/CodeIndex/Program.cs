@@ -49,7 +49,7 @@ internal static class Program
         builder.Logging.ClearProviders();
 
         // Registered so the MCP SDK can inject them into tool methods: IFileSystem (the source-reading tools —
-        // get_symbol_source / get_context_bundle / find_references / search_text) and ICodeIndexCache (index_stats).
+        // get_symbol_source / get_context_bundle / find_references / search_text) and ICodeIndexCache (repo_info).
         builder.Services.AddSingleton<IFileSystem>(fileSystem);
         builder.Services.AddSingleton<ICodeIndexCache>(csCache);
         builder.Services.AddSingleton<ICodeIndexStore>(index);

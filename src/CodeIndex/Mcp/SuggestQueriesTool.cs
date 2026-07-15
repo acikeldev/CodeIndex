@@ -87,7 +87,7 @@ public static class SuggestQueriesTool
         if (projects.Count > 0)
         {
             string topProj = projects[0].Name;
-            sb.AppendLine($"  list_files(project='{topProj}')                — files in largest project");
+            sb.AppendLine($"  repo_info(project='{topProj}')                 — files in largest project");
             sb.AppendLine($"  get_project_dependencies(project='{topProj}')  — dependency graph");
         }
 

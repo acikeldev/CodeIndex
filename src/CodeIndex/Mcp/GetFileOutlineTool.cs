@@ -27,7 +27,7 @@ public static class GetFileOutlineTool
         {
             return $"File '{file}' not found in index."
                 + NameSuggester.DidYouMean(file, index.FileNames())
-                + " Try list_files to browse indexed files, or search_symbol if you know a type it declares.";
+                + " Try repo_info(project=...) to browse indexed files, or search_symbol if you know a type it declares.";
         }
 
         if (typesOnly)

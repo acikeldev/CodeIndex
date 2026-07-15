@@ -5,11 +5,11 @@
 results — so your coding agent spends its context window (and your pay-as-you-go budget) on *thinking*, not on
 grepping and re-reading source.
 
-It indexes **C#** (Roslyn) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **20 tools** to
+It indexes **C#** (Roslyn) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **18 tools** to
 any MCP client (Claude Code, Cursor, Copilot, …). No cloud, no embeddings, no API keys — everything runs on your
 machine.
 
-→ **[Install & configure](docs/INSTALL.md)** · [The 20 tools](#the-20-tools) · [How it works](#how-it-works)
+→ **[Install & configure](docs/INSTALL.md)** · [The 18 tools](#the-18-tools) · [How it works](#how-it-works)
 
 ---
 
@@ -107,7 +107,7 @@ Want the end-to-end session-level proof (the `$ / tokens / wall-time` your MCP c
 the same handful of code questions in two sessions — one with the CodeIndex tools enabled, one with only
 grep/read — and compare the status line. The per-task token deltas above are what drives that difference.
 
-## The 20 tools
+## The 18 tools
 
 **One-call dossiers** (prefer these — each collapses a multi-tool chain into a single round-trip)
 
@@ -122,9 +122,7 @@ grep/read — and compare the status line. The per-task token deltas above are w
 |------|-----------|--------------|
 | `suggest_queries` | C# + TS | Index overview (top projects, largest files, type distribution) + ready-to-run starting queries |
 | `repo_map` | C# + TS | The most important symbols, ranked by PageRank over the symbol-reference graph; pass `focus=` for task-relevant (personalized) ranking |
-| `index_stats` | — | Health/diagnostics: counts, last build kind/age, cache path + schema version |
-| `list_projects` | C# + TS | All indexed projects with file counts |
-| `list_files` | C# + TS | Source files in a project |
+| `repo_info` | C# + TS | Repo overview (projects + file counts) and index health (build kind/age, cache path + schema); `project=` lists that project's files |
 
 **Search**
 

@@ -24,7 +24,7 @@ public static class GetProjectDependenciesTool
         {
             return $"Project '{project}' not found."
                 + NameSuggester.DidYouMean(project, index.ProjectNames())
-                + " Try list_projects for the exact project names.";
+                + " Try repo_info for the exact project names.";
         }
 
         StringBuilder sb = new();

@@ -62,7 +62,7 @@ public sealed class SuggestQueriesToolTests
 
         // No files/projects with content → the content-dependent suggestions are omitted.
         result.Should().NotContain("get_file_outline(file=");
-        result.Should().NotContain("list_files(project=");
+        result.Should().NotContain("repo_info(project=");
         result.Should().NotContain("get_project_dependencies(project=");
     }
 
@@ -93,7 +93,7 @@ public sealed class SuggestQueriesToolTests
 
         // Content-dependent suggestions now appear, seeded from the top file/project.
         result.Should().Contain("get_file_outline(file='BigService.cs')");
-        result.Should().Contain("list_files(project='App')");
+        result.Should().Contain("repo_info(project='App')");
         result.Should().Contain("get_project_dependencies(project='App')");
     }
 

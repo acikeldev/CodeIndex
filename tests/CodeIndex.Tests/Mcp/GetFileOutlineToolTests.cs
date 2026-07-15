@@ -149,7 +149,7 @@ public sealed class GetFileOutlineToolTests
         string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Widgets.cs");
 
         output.Should().Contain("File 'Widgets.cs' not found in index.");
-        output.Should().Contain("Try list_files to browse indexed files");
+        output.Should().Contain("Try repo_info(project=...) to browse indexed files");
         // Close name should trigger a suggestion of the real file.
         output.Should().Contain("Widget.cs");
     }
