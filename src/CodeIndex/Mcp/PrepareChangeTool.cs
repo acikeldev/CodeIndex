@@ -30,12 +30,14 @@ public static class PrepareChangeTool
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, symbol, @namespace, project, out string? error);
         if (resolved is not null)
         {
+            // Resolved proper-case name for every section — the case-sensitive reference/call matchers would
+            // otherwise miss a symbol resolved case-insensitively (see ExplainSymbolTool for the same fix).
             List<(string Heading, string Body)> sections = new()
             {
                 ("Definition", DossierBuilder.RenderSource(index, fileSystem, resolved.SourceFilePath, resolved.DisplayFile, resolved.StartLine, resolved.LineCount)),
-                ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, symbol, project, max: RefMax, perFileMax: RefPerFile)),
-                ("Implementors / overrides", GetClassHierarchyTool.GetClassHierarchy(index, symbol, @namespace, project)),
-                ("Callers", CallHierarchyTool.CallHierarchy(index, symbol, "callers", "both", project)),
+                ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, resolved.Name, project, max: RefMax, perFileMax: RefPerFile)),
+                ("Implementors / overrides", GetClassHierarchyTool.GetClassHierarchy(index, resolved.Name, @namespace, project)),
+                ("Callers", CallHierarchyTool.CallHierarchy(index, resolved.Name, "callers", "both", project)),
             };
             return DossierBuilder.Assemble($"# prepare_change: {resolved.TypeKeyword} {resolved.Name} ({resolved.Project})", sections);
         }
@@ -57,8 +59,8 @@ public static class PrepareChangeTool
         List<(string Heading, string Body)> memberSections = new()
         {
             ("Definition", DossierBuilder.RenderSource(index, fileSystem, best.SourceFilePath, best.File, best.StartLine, best.LineCount)),
-            ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, symbol, project, max: RefMax, perFileMax: RefPerFile)),
-            ("Callers", CallHierarchyTool.CallHierarchy(index, symbol, "callers", "both", project)),
+            ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project, max: RefMax, perFileMax: RefPerFile)),
+            ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
         };
         return DossierBuilder.Assemble($"# prepare_change: {best.Signature ?? best.Name} [{best.File}:{best.StartLine}+{best.LineCount}] ({best.Project})", memberSections);
     }

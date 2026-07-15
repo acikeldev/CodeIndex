@@ -194,6 +194,28 @@ public sealed class GetFileOutlineToolTests
     }
 
     [Fact]
+    public void SmallLineCountButTokenHeavyFile_OmitsFullSource()
+    {
+        // <=120 lines (passes the line gate) but the body exceeds the speculate token budget, so it's omitted.
+        StringBuilder body = new();
+        body.AppendLine("namespace P;");
+        body.AppendLine("public class Dense");
+        body.AppendLine("{");
+        for (int i = 0; i < 60; i++)
+        {
+            body.AppendLine($"    public int SomeReasonablyLongDescriptiveFieldName{i} {{ get; set; }}");
+        }
+
+        body.AppendLine("}");
+        CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Dense.cs", body.ToString()));
+
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Dense.cs");
+
+        output.Should().Contain("class Dense");                 // full outline still produced
+        output.Should().NotContain("Full source (small file");  // over the token budget -> body omitted
+    }
+
+    [Fact]
     public void TypesOnly_CountsEveryMemberKind()
     {
         CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Mixed.cs", """

@@ -52,6 +52,12 @@ internal static class DossierBuilder
     {
         int shown = Math.Min(lineCount, MaxSourceLines);
         string source = GetSymbolSourceTool.GetSymbolSource(index, fileSystem, sourceFilePath, startLine, shown);
+        if (GetSymbolSourceTool.IsErrorResult(source))
+        {
+            // File changed since indexing — don't present the sentinel as code; point at an explicit read.
+            return $"(source unavailable — call get_symbol_source(\"{displayFile}\", {startLine}, {lineCount}))";
+        }
+
         if (lineCount > MaxSourceLines)
         {
             int rest = lineCount - MaxSourceLines;

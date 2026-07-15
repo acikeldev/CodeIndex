@@ -208,6 +208,16 @@ public sealed class SearchSymbolToolTests
     }
 
     [Fact]
+    public void TokenBudgetSet_SkipsSpeculativeAppendix()
+    {
+        CodeIndexStore store = Build();
+
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Widget", kind: "class", tokenBudget: 5000);
+
+        result.Should().NotContain("pre-fetched");   // an explicit token_budget suppresses speculation
+    }
+
+    [Fact]
     public void SingleMatch_OversizeSource_OmitsAppendix()
     {
         System.Text.StringBuilder sb = new();
@@ -227,6 +237,20 @@ public sealed class SearchSymbolToolTests
 
         result.Should().StartWith("1 match.\n");
         result.Should().NotContain("pre-fetched");   // source exceeds SpeculateTokenBudget -> left to an explicit call
+    }
+
+    [Fact]
+    public void SingleMatch_StaleIndexBeyondEof_OmitsAppendix()
+    {
+        _fs.AddFile(@"C:\repo\App\Stale.cs", "namespace App;\npublic class Stale\n{\n    public void M() { }\n}\n");
+        CodeIndexStore store = Build();
+        // File shrinks on disk after indexing — the indexed StartLine now points past EOF.
+        _fs.AddFile(@"C:\repo\App\Stale.cs", "namespace App;\n");
+
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "Stale", kind: "class");
+
+        result.Should().StartWith("1 match.\n");
+        result.Should().NotContain("pre-fetched");   // beyond-EOF sentinel is not embedded as source
     }
 
     [Fact]

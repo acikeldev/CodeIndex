@@ -85,6 +85,20 @@ public sealed class ExplainSymbolToolTests
     }
 
     [Fact]
+    public void CaseInsensitiveQuery_StillFindsReferences()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+
+        // Lowercase query resolves the type case-insensitively; References must search the resolved proper-case
+        // name (the reference matcher is case-SENSITIVE) or it reports zero references for a used type.
+        string output = ExplainSymbolTool.ExplainSymbol(store, _fs, "greeter");
+
+        output.Should().Contain("## References");
+        output.Should().Contain("Consumer");
+    }
+
+    [Fact]
     public void UnknownSymbol_ReturnsNotFoundWithSuggestion()
     {
         Seed();
@@ -93,6 +107,19 @@ public sealed class ExplainSymbolToolTests
         string output = ExplainSymbolTool.ExplainSymbol(store, _fs, "Greetr");
 
         output.Should().Contain("No symbol found matching 'Greetr'.");
+    }
+
+    [Fact]
+    public void StaleIndexDeletedFile_SourceSectionShowsUnavailable()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+        // The file is deleted after indexing; the Source section must not present the error sentinel as code.
+        _fs.DeleteFile(@"C:\repo\Core\Greeter.cs");
+
+        string output = ExplainSymbolTool.ExplainSymbol(store, _fs, "Greeter");
+
+        output.Should().Contain("source unavailable");
     }
 
     [Fact]

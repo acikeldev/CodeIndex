@@ -32,6 +32,11 @@ internal static class SpeculativeAppendix
         }
 
         string source = GetSymbolSourceTool.GetSymbolSource(index, fileSystem, sourceFilePath, startLine, lineCount);
+        if (GetSymbolSourceTool.IsErrorResult(source))
+        {
+            return string.Empty;
+        }
+
         return WithinBudget(index, source) ? SourceHeader + source.TrimEnd() : string.Empty;
     }
 
@@ -52,6 +57,9 @@ internal static class SpeculativeAppendix
             return string.Empty;
         }
 
+        // GetSymbolSource(1, lines.Length) on an existing non-empty file cannot hit an error sentinel (start is in
+        // range), so no IsErrorResult guard is needed here — unlike ForSource, whose indexed StartLine can point
+        // past a since-shrunk file.
         string source = GetSymbolSourceTool.GetSymbolSource(index, fileSystem, sourceFilePath, 1, lines.Length);
         return WithinBudget(index, source) ? FileHeader + source.TrimEnd() : string.Empty;
     }

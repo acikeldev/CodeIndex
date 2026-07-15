@@ -59,4 +59,12 @@ public static class GetSymbolSourceTool
 
         return sb.ToString();
     }
+
+    // The non-source sentinels GetSymbolSource can return (refused path / missing file / start-past-EOF). Callers
+    // that embed the result AS source — the dossiers and the speculative appendix — must check this first so an
+    // error string is never presented as code (e.g. on a stale index after the file shrank or was deleted).
+    internal static bool IsErrorResult(string result) =>
+        result.StartsWith("Refused:", StringComparison.Ordinal)
+        || result.StartsWith("Source file not found:", StringComparison.Ordinal)
+        || result.StartsWith("Start line ", StringComparison.Ordinal);
 }

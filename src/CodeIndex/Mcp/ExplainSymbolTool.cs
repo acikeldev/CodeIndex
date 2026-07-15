@@ -15,7 +15,7 @@ namespace CodeIndex.Mcp;
 public static class ExplainSymbolTool
 {
     [McpServerTool(Name = "explain_symbol")]
-    [Description("One-call symbol dossier: resolves a symbol and returns its identity + members, inheritance, source, and references in a SINGLE response — use instead of hand-running search_symbol → get_type_members → get_symbol_source → find_references. Works for a type or a method/member. Pass namespace= or project= to disambiguate; for an editing task use prepare_change instead.")]
+    [Description("One-call symbol dossier: resolves a symbol and returns — for a type — its identity + members + inheritance + source + references, or — for a method/member — its source + references + callers, in a SINGLE response. Use instead of hand-running search_symbol → get_type_members → get_symbol_source → find_references. Pass namespace= or project= to disambiguate; for an editing task use prepare_change instead.")]
     public static string ExplainSymbol(
         ICodeIndexStore index,
         IFileSystem fileSystem,
@@ -26,12 +26,15 @@ public static class ExplainSymbolTool
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, symbol, @namespace, project, out string? error);
         if (resolved is not null)
         {
+            // Use the RESOLVED proper-case name for every section: find_references / call_hierarchy match
+            // case-sensitively, so the caller's raw query (which resolves case-insensitively / by substring)
+            // would otherwise report zero references for a symbol whose Source we just rendered.
             List<(string Heading, string Body)> sections = new()
             {
-                ("Members", GetTypeMembersTool.GetTypeMembers(index, symbol, null, @namespace, project)),
-                ("Inheritance", GetClassHierarchyTool.GetClassHierarchy(index, symbol, @namespace, project)),
+                ("Members", GetTypeMembersTool.GetTypeMembers(index, resolved.Name, null, @namespace, project)),
+                ("Inheritance", GetClassHierarchyTool.GetClassHierarchy(index, resolved.Name, @namespace, project)),
                 ("Source", DossierBuilder.RenderSource(index, fileSystem, resolved.SourceFilePath, resolved.DisplayFile, resolved.StartLine, resolved.LineCount)),
-                ("References", FindReferencesTool.FindReferences(index, fileSystem, symbol, project)),
+                ("References", FindReferencesTool.FindReferences(index, fileSystem, resolved.Name, project)),
             };
             return DossierBuilder.Assemble($"# explain_symbol: {resolved.TypeKeyword} {resolved.Name} ({resolved.Project})", sections);
         }
@@ -64,8 +67,8 @@ public static class ExplainSymbolTool
         List<(string Heading, string Body)> sections = new()
         {
             ("Source", DossierBuilder.RenderSource(index, fileSystem, best.SourceFilePath, best.File, best.StartLine, best.LineCount)),
-            ("References", FindReferencesTool.FindReferences(index, fileSystem, symbol, project)),
-            ("Callers", CallHierarchyTool.CallHierarchy(index, symbol, "callers", "both", project)),
+            ("References", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project)),
+            ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
         };
         return DossierBuilder.Assemble($"# explain_symbol: {best.Signature ?? best.Name} [{best.File}:{best.StartLine}+{best.LineCount}] ({best.Project}){note}", sections);
     }

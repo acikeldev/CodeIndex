@@ -30,7 +30,7 @@ public static class SearchSymbolTool
         [Description("Optional kind filter: class, struct, record, interface, enum, method, property, field, constructor, event")] string? kind = null,
         [Description("Optional project name filter (e.g., 'MyApp.Core')")] string? project = null,
         [Description("'compact' (default) = one-line per result, 'full' = JSON with all metadata")] string detail = "compact",
-        [Description("Token budget cap. Results packed until budget exhausted. Overrides default limit of 50.")] int? tokenBudget = null)
+        [Description("Token budget for the result-row body; rows are packed until it's exhausted (overrides the default 50-row cap). When set, the speculative source appendix is skipped.")] int? tokenBudget = null)
     {
         if (kind is not null && !KindFilter.IsValidSymbolKind(kind))
         {
@@ -71,8 +71,10 @@ public static class SearchSymbolTool
             return header + body;
         }
 
-        // Exactly one match is the high-confidence signal that the source is the next thing the agent wants.
-        string appendix = total == 1
+        // Exactly one match is the high-confidence signal that the source is the next thing the agent wants —
+        // but skip speculation when the caller set an explicit token_budget (they're signalling cost-consciousness,
+        // and the appendix is governed by SpeculateTokenBudget, not their cap).
+        string appendix = total == 1 && tokenBudget is null
             ? SpeculativeAppendix.ForSource(index, fileSystem, results[0].SourceFilePath, results[0].StartLine, results[0].LineCount)
             : string.Empty;
 
