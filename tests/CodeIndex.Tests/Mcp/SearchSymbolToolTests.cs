@@ -208,6 +208,28 @@ public sealed class SearchSymbolToolTests
     }
 
     [Fact]
+    public void SingleMatch_OversizeSource_OmitsAppendix()
+    {
+        System.Text.StringBuilder sb = new();
+        sb.AppendLine("namespace App;");
+        sb.AppendLine("public class BigOne");
+        sb.AppendLine("{");
+        for (int i = 0; i < 200; i++)
+        {
+            sb.AppendLine($"    private int _f{i}; // padding pushes the source past the speculate token budget");
+        }
+
+        sb.AppendLine("}");
+        _fs.AddFile(@"C:\repo\App\BigOne.cs", sb.ToString());
+        CodeIndexStore store = Build();
+
+        string result = SearchSymbolTool.SearchSymbol(store, _fs, "BigOne", kind: "class");
+
+        result.Should().StartWith("1 match.\n");
+        result.Should().NotContain("pre-fetched");   // source exceeds SpeculateTokenBudget -> left to an explicit call
+    }
+
+    [Fact]
     public void ManyMatches_NoSpeculativeAppendix()
     {
         CodeIndexStore store = BuildMany(60);

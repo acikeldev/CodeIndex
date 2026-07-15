@@ -172,6 +172,52 @@ public sealed class GetFileOutlineToolTests
     }
 
     [Fact]
+    public void LargeButNotOversizeFile_OmitsFullSource()
+    {
+        // Over the 120-line small-file cap but well under the outline char cap: full outline, no source appendix.
+        StringBuilder body = new();
+        body.AppendLine("namespace P;");
+        body.AppendLine("public class Wide");
+        body.AppendLine("{");
+        for (int i = 0; i < 140; i++)
+        {
+            body.AppendLine($"    private int _f{i};");
+        }
+
+        body.AppendLine("}");
+        CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Wide.cs", body.ToString()));
+
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Wide.cs");
+
+        output.Should().Contain("class Wide");                 // full outline still produced
+        output.Should().NotContain("Full source (small file"); // but the body is too long to pre-fetch
+    }
+
+    [Fact]
+    public void TypesOnly_CountsEveryMemberKind()
+    {
+        CodeIndexStore store = BuildStore(fs => fs.AddFile(@"C:\repo\P\Mixed.cs", """
+            namespace P;
+            public class Mixed
+            {
+                private int _field;
+                public event System.EventHandler? Changed;
+                public Mixed() { }
+                public int Value { get; set; }
+                public void Run() { }
+            }
+            """));
+
+        string output = GetFileOutlineTool.GetFileOutline(store, _fs, "Mixed.cs", typesOnly: true);
+
+        output.Should().Contain("1 ctors");
+        output.Should().Contain("1 props");
+        output.Should().Contain("1 fields");
+        output.Should().Contain("1 events");
+        output.Should().Contain("1 methods");
+    }
+
+    [Fact]
     public void SpeculateDisabled_OmitsFullSource()
     {
         _fs.AddFile(@"C:\repo\App.slnx", "<Solution>\n  <Project Path=\"P/P.csproj\" />\n</Solution>\n");
