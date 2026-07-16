@@ -76,12 +76,25 @@ source + references in one payload), yet it still beats the grep chain — locat
 task in isolation. A real agent session also spends tokens on reasoning, editing, running tests, and its own
 output — navigation is only part of that, and every extra tool call re-sends the growing context.
 
-So the **session-level** saving is smaller — sometimes near zero. It pays off only when the smaller per-query
-payload outweighs CodeIndex's extra round-trips: large files you need small slices of, or navigation scattered
-across many files. A focused, few-file task can come out roughly even. In one real end-to-end A/B on this repo,
-total tokens and wall-clock landed **within ~1%** either way (CodeIndex cut raw navigation bytes ~29% but spent
-it back on more tool calls). Full numbers and a run-it-yourself protocol for *your* task and model:
-**[docs/BENCHMARK.md](docs/BENCHMARK.md)**.
+So the **session-level** saving is smaller than the per-operation figure, and it depends on *what the session is
+made of*. It pays off when the smaller per-query payload and fewer round-trips outweigh CodeIndex's fixed
+overhead: large files you need small slices of, hierarchy/reference/usage questions, or navigation scattered
+across many files. A session that is nothing but one- or two-call literal lookups comes out roughly even.
+
+A balanced end-to-end A/B (a mix of literal, structural, and multi-step questions; **hybrid = CodeIndex + grep**
+vs **grep-only**, same model, cache-cold alternation) brackets the range:
+
+| Session workload | Cost saving, hybrid vs grep-only |
+|---|---:|
+| **Best case** — structural-heavy (class hierarchy, references, usage facets) | **~−40%** |
+| **Worst case** — literal / config-hunt heavy | **~−5%** (pure-literal ties) |
+| **Typical** — balanced mix (midpoint of best & worst; also the measured balanced-set median) | **~−22%** |
+
+Turn count drops ~30–40% on the same workload — *fewer round-trips*, the mechanism behind the cost win. Two
+metrics carry honesty flags: wall-clock is noisy (the server pays a fixed start-up / tool-load cost, so a *tiny*
+task can be slower), and raw token totals are inflated by cheap cache-read volume — so **cost and turn count are
+the reliable signals**. These are directional (small per-cell sample). Full numbers, caveats, and a
+run-it-yourself protocol for *your* task and model: **[docs/BENCHMARK.md](docs/BENCHMARK.md)**.
 
 **When it wins, washes, or loses:**
 

@@ -120,8 +120,42 @@ approximate tally; `Total tokens` and `Wall-clock` are the harness's own measure
 input/output here, but since both arms are within ~1% on total tokens, their dollar cost is within ~1% too. For
 your own task and model, run the two-session protocol above and read the status line.
 
+## 4. Balanced session A/B (re-run across a mixed task set)
+
+§3 was a single, concentrated-file task, and it invited a re-run once the round-trip count had been attacked. Here
+is that re-run, widened to a **balanced** set so no single task type dominates: a literal/config lookup (grep's
+home turf), a transitive class-hierarchy question, a production-vs-test usage question, a multi-step mixed task,
+and a composite session that combines them. Each cell is **hybrid (CodeIndex + grep)** vs **grep-only**, same
+model, cache-cold alternation, 2 runs/cell (n=2 — directional, not a significance test).
+
+| Task type | Hybrid | Grep-only | Δ cost | Δ turns |
+|---|---:|---:|---:|---:|
+| Literal / config lookup | $0.285 | $0.283 | **tie** | 9 vs 8 |
+| Transitive class hierarchy | $0.226 | $0.377 | **−40%** | 3 vs 9 |
+| Production/test usage facet | $0.186 | $0.245 | **−24%** | 3 vs 4 |
+| Multi-step mixed | $0.549 | $0.708 | **−22%** | 21 vs 24.5 |
+| Composite session | $0.729 | $0.938 | **−22%** | 17.5 vs 24.5 |
+
+**Reading it honestly:**
+
+- **The literal task is a genuine tie.** With plain text routed to native grep, the hybrid stops reaching for an
+  indexed text search where a single ripgrep is leaner — so it neither wins nor loses grep's home turf.
+- **The structural tasks are the real wins, and they're mechanistic, not luck.** A transitive hierarchy is one
+  `get_class_hierarchy transitive=true` call versus one grep *per level*; a usage facet is one `find_references`
+  call versus grep-plus-manual-classification. Fewer round-trips → less re-sent context → lower cost. This is the
+  part that survives even an adversarial pairing (best grep run vs worst hybrid run) at ~−35%.
+- **Worst / best / typical.** Structural-heavy sessions land near **−40%**; literal-heavy sessions near **−5%**
+  (breakeven; pure-literal ties); a **balanced** mix is **~−22%** — both the midpoint of that range and the
+  measured balanced-set median.
+
+Caveats stack up and matter: n=2/cell (directional); wall-clock is the noisiest metric and can go *negative* on
+tiny tasks because of the server's fixed start-up cost; raw token totals are dominated by cheap prompt-cache reads
+whose volume swings with cache warmth — so **cost and turn count are the trustworthy signals**, not total-token
+deltas. Re-run the §2 protocol on *your* task mix to get the number that applies to you.
+
 ---
 
-**Bottom line.** The context-cost benchmark proves CodeIndex makes each navigation operation dramatically cheaper.
-The session A/B tells you what that's worth on a real task — always less than the per-operation figure, and most
-when the work is navigation-heavy. Report both, never conflate them.
+**Bottom line.** The context-cost benchmark proves CodeIndex makes each navigation *operation* dramatically
+cheaper (~90%). The session A/B tells you what that's worth on a real *task*: a concentrated, few-file task can be
+a wash (§3), while a balanced mix of real questions runs **~22% cheaper with ~30–40% fewer round-trips** (§4), and
+structural-heavy work more. Always less than the per-operation figure — report both, never conflate them.
