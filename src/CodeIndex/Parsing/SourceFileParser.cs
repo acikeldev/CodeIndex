@@ -76,6 +76,10 @@ public sealed class SourceFileParser
             }
         }
 
+        // Runtime-wiring edges (DI registrations, service-locator consumption, legacy construction). Gated by a
+        // cheap marker scan inside Extract, so files with no DI wiring pay ~one substring check and no tree walk.
+        List<RuntimeRegistration>? registrations = RuntimeEdgeExtractor.Extract(root, sourceText);
+
         return new SourceFileIndex
         {
             FileName = Path.GetFileName(csFilePath),
@@ -84,7 +88,8 @@ public sealed class SourceFileParser
             Namespace = ns?.Name.ToString(),
             Types = types,
             Usings = usings,
-            UsingAliases = aliases
+            UsingAliases = aliases,
+            Registrations = registrations
         };
     }
 
