@@ -20,6 +20,9 @@ public sealed class TypeInfo
     // The type's own namespace (may differ from the file's first namespace in multi-namespace files). Used by
     // resolve_bare_name and disambiguation so a bare name binds against the correct enclosing namespace.
     [Key(9)] public string? Namespace { get; init; }
+    // Framework-role markers ([ServiceContract]/IHttpHandler/ServiceBase/…). None (=0) for ordinary types; a set
+    // bit means the framework creates/dispatches this type, so it and its convention members are not dead.
+    [Key(10)] public TypeRootKind RootKinds { get; init; } = TypeRootKind.None;
 
     // Comma-joined base list for display (null when there are none). Not serialized — derived from BaseTypes.
     [IgnoreMember]

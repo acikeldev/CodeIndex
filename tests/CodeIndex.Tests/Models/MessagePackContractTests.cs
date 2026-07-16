@@ -134,4 +134,226 @@ public sealed class MessagePackContractTests
         TypeInfo t = new() { Name = "X", Kind = SymbolKind.Class, TypeKeyword = "class", StartLine = 1, LineCount = 1 };
         t.BaseTypesDisplay.Should().BeNull();
     }
+
+    // --- v5 runtime-edge plumbing (Phase 0) ---
+
+    [Fact]
+    public void RegKind_OrdinalOrder_IsStable()
+    {
+        // Append-only contract: reordering silently rebinds every serialized RuntimeRegistration.
+        ((int)RegKind.DiGeneric).Should().Be(0);
+        ((int)RegKind.DiFactory).Should().Be(1);
+        ((int)RegKind.DiInstance).Should().Be(2);
+        ((int)RegKind.DiOpenGeneric).Should().Be(3);
+        ((int)RegKind.DiReplace).Should().Be(4);
+        ((int)RegKind.DiModule).Should().Be(5);
+        ((int)RegKind.LocatorConsume).Should().Be(6);
+        ((int)RegKind.LegacyNew).Should().Be(7);
+        ((int)RegKind.Reflection).Should().Be(8);
+        ((int)RegKind.KnownType).Should().Be(9);
+        ((int)RegKind.ExtensionOf).Should().Be(10);
+        ((int)RegKind.DelegateWiring).Should().Be(11);
+    }
+
+    [Fact]
+    public void RuntimeEdgeConfidence_OrdinalOrder_IsStable()
+    {
+        ((int)RuntimeEdgeConfidence.Resolved).Should().Be(0);
+        ((int)RuntimeEdgeConfidence.Partial).Should().Be(1);
+        ((int)RuntimeEdgeConfidence.Dynamic).Should().Be(2);
+    }
+
+    [Fact]
+    public void FrameworkRootKind_OrdinalOrder_IsStable()
+    {
+        ((int)FrameworkRootKind.ServiceHost).Should().Be(0);
+        ((int)FrameworkRootKind.ReflectionTarget).Should().Be(1);
+        ((int)FrameworkRootKind.KnownType).Should().Be(2);
+        ((int)FrameworkRootKind.ExtensionOf).Should().Be(3);
+    }
+
+    [Fact]
+    public void MemberRootKind_BitValues_AreStable()
+    {
+        // Append-only bit contract: renumbering corrupts the stored flag byte on every member.
+        ((int)MemberRootKind.None).Should().Be(0);
+        ((int)MemberRootKind.WcfOperation).Should().Be(1);
+        ((int)MemberRootKind.SerializationCallback).Should().Be(2);
+        ((int)MemberRootKind.DataMember).Should().Be(4);
+        ((int)MemberRootKind.Test).Should().Be(8);
+        ((int)MemberRootKind.HttpHandlerMethod).Should().Be(16);
+        ((int)MemberRootKind.ServiceControlMethod).Should().Be(32);
+        ((int)MemberRootKind.EntryPointMain).Should().Be(64);
+        ((int)MemberRootKind.HttpAppLifecycle).Should().Be(128);
+    }
+
+    [Fact]
+    public void TypeRootKind_BitValues_AreStable()
+    {
+        ((int)TypeRootKind.None).Should().Be(0);
+        ((int)TypeRootKind.WcfServiceContract).Should().Be(1);
+        ((int)TypeRootKind.WcfServiceImpl).Should().Be(2);
+        ((int)TypeRootKind.HttpHandler).Should().Be(4);
+        ((int)TypeRootKind.HttpApplication).Should().Be(8);
+        ((int)TypeRootKind.ServiceBase).Should().Be(16);
+        ((int)TypeRootKind.DataContract).Should().Be(32);
+        ((int)TypeRootKind.TestClass).Should().Be(64);
+    }
+
+    [Fact]
+    public void RuntimeRegistration_RoundTrips_WithAllFields()
+    {
+        RuntimeRegistration reg = new()
+        {
+            Kind = RegKind.DiGeneric,
+            ServiceTypeName = "IConfigProvider",
+            ImplTypeName = "ConfigProvider",
+            Lifetime = "Singleton",
+            StartLine = 23,
+            Confidence = RuntimeEdgeConfidence.Resolved,
+            Snippet = "services.AddSingleton<IConfigProvider, ConfigProvider>()",
+            EnclosingType = "DependencyInitialiser",
+            EnclosingMember = "ConfigureServices",
+            Conditional = false,
+        };
+
+        RuntimeRegistration back = MessagePackSerializer.Deserialize<RuntimeRegistration>(MessagePackSerializer.Serialize(reg));
+
+        back.Kind.Should().Be(RegKind.DiGeneric);
+        back.ServiceTypeName.Should().Be("IConfigProvider");
+        back.ImplTypeName.Should().Be("ConfigProvider");
+        back.Lifetime.Should().Be("Singleton");
+        back.StartLine.Should().Be(23);
+        back.Confidence.Should().Be(RuntimeEdgeConfidence.Resolved);
+        back.Snippet.Should().Be("services.AddSingleton<IConfigProvider, ConfigProvider>()");
+        back.EnclosingType.Should().Be("DependencyInitialiser");
+        back.EnclosingMember.Should().Be("ConfigureServices");
+        back.Conditional.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RuntimeRegistration_RoundTrips_DynamicWithNullImpl()
+    {
+        // A dynamic edge is never dropped and never guessed: null impl survives the round-trip.
+        RuntimeRegistration reg = new()
+        {
+            Kind = RegKind.Reflection,
+            ServiceTypeName = null,
+            ImplTypeName = null,
+            StartLine = 42,
+            Confidence = RuntimeEdgeConfidence.Dynamic,
+        };
+
+        RuntimeRegistration back = MessagePackSerializer.Deserialize<RuntimeRegistration>(MessagePackSerializer.Serialize(reg));
+
+        back.ImplTypeName.Should().BeNull();
+        back.Confidence.Should().Be(RuntimeEdgeConfidence.Dynamic);
+    }
+
+    [Fact]
+    public void FrameworkRootMark_RoundTrips()
+    {
+        FrameworkRootMark mark = new()
+        {
+            TargetTypeName = "MSIService",
+            TargetMemberName = null,
+            Kind = FrameworkRootKind.ServiceHost,
+            StartLine = 72,
+        };
+
+        FrameworkRootMark back = MessagePackSerializer.Deserialize<FrameworkRootMark>(MessagePackSerializer.Serialize(mark));
+
+        back.TargetTypeName.Should().Be("MSIService");
+        back.TargetMemberName.Should().BeNull();
+        back.Kind.Should().Be(FrameworkRootKind.ServiceHost);
+        back.StartLine.Should().Be(72);
+    }
+
+    [Fact]
+    public void SourceFileIndex_RoundTrips_WithRuntimeEdgesAndRootKinds()
+    {
+        SourceFileIndex file = new()
+        {
+            FileName = "DependencyInitialiser.cs",
+            SourceFilePath = @"C:\Repo\DependencyInitialiser.cs",
+            ProjectName = "Web",
+            Types =
+            [
+                new TypeInfo
+                {
+                    Name = "B3Dnet",
+                    Kind = SymbolKind.Class,
+                    TypeKeyword = "class",
+                    StartLine = 1,
+                    LineCount = 100,
+                    RootKinds = TypeRootKind.WcfServiceImpl,
+                    Members =
+                    [
+                        new MemberInfo
+                        {
+                            Name = "GetReport",
+                            Kind = SymbolKind.Method,
+                            ReturnType = "string",
+                            Signature = "string GetReport()",
+                            StartLine = 10,
+                            LineCount = 5,
+                            RootKinds = MemberRootKind.WcfOperation | MemberRootKind.DataMember,
+                        },
+                    ],
+                },
+            ],
+            Registrations =
+            [
+                new RuntimeRegistration
+                {
+                    Kind = RegKind.DiGeneric,
+                    ServiceTypeName = "IConfigProvider",
+                    ImplTypeName = "ConfigProvider",
+                    Lifetime = "Singleton",
+                    StartLine = 23,
+                    Confidence = RuntimeEdgeConfidence.Resolved,
+                },
+            ],
+            FrameworkRoots =
+            [
+                new FrameworkRootMark
+                {
+                    TargetTypeName = "MSIService",
+                    Kind = FrameworkRootKind.ServiceHost,
+                    StartLine = 72,
+                },
+            ],
+        };
+
+        SourceFileIndex back = MessagePackSerializer.Deserialize<SourceFileIndex>(MessagePackSerializer.Serialize(file));
+
+        back.Registrations.Should().ContainSingle();
+        back.Registrations![0].ServiceTypeName.Should().Be("IConfigProvider");
+        back.Registrations[0].ImplTypeName.Should().Be("ConfigProvider");
+        back.FrameworkRoots.Should().ContainSingle();
+        back.FrameworkRoots![0].TargetTypeName.Should().Be("MSIService");
+
+        TypeInfo t = back.Types.Single();
+        t.RootKinds.Should().Be(TypeRootKind.WcfServiceImpl);
+        MemberInfo m = t.Members.Single();
+        m.RootKinds.Should().Be(MemberRootKind.WcfOperation | MemberRootKind.DataMember);
+        m.RootKinds.HasFlag(MemberRootKind.DataMember).Should().BeTrue();
+    }
+
+    [Fact]
+    public void SourceFileIndex_RoundTrips_WithNullRuntimeEdges()
+    {
+        // The common case: an ordinary file has no runtime edges — both lists stay null, RootKinds default None.
+        SourceFileIndex file = new()
+        {
+            FileName = "Plain.cs",
+            SourceFilePath = @"C:\Repo\Plain.cs",
+            ProjectName = "App",
+        };
+
+        SourceFileIndex back = MessagePackSerializer.Deserialize<SourceFileIndex>(MessagePackSerializer.Serialize(file));
+
+        back.Registrations.Should().BeNull();
+        back.FrameworkRoots.Should().BeNull();
+    }
 }

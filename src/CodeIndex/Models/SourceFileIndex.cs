@@ -21,4 +21,13 @@ public sealed class SourceFileIndex
     // Which language this file was parsed from. Default CSharp (=0) so old v4 cache rows — which only ever
     // hold C# files — deserialize correctly with NO cache-schema bump. Lets C#-only readers scope out TS/SCSS.
     [Key(7)] public Language Language { get; init; } = Language.CSharp;
+
+    // Runtime-wiring sites captured syntactically from this file (DI registrations, service-locator consumption,
+    // legacy construction, reflective targets). Null when the file has none — most files. The solution-wide
+    // interface->implementation closure is a derived, never-serialized graph built over these across all files.
+    [Key(8)] public List<RuntimeRegistration>? Registrations { get; init; }
+
+    // SITE-based framework roots originating in this file (e.g. `new ServiceHost(typeof(X))` marking X a root).
+    // Declaration-local roots live as bitflags on TypeInfo/MemberInfo instead. Null when the file has none.
+    [Key(9)] public List<FrameworkRootMark>? FrameworkRoots { get; init; }
 }

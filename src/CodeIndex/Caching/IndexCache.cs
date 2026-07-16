@@ -20,7 +20,9 @@ public sealed class IndexCache : ICodeIndexCache
     // v3: SourceFileIndex gained Usings + UsingAliases (resolve_bare_name)
     // v4: nested types indexed; per-type Namespace; BaseTypes as List<string>; multi-declarator fields split;
     //     Struct/Record/RecordStruct kinds; type-less files retained.
-    public const int SchemaVersion = 4;
+    // v5: runtime-edge plumbing — SourceFileIndex gained Registrations + FrameworkRoots; TypeInfo/MemberInfo
+    //     gained RootKinds bitflags (DI/reflection/framework-root awareness). Empty until the extractor ships.
+    public const int SchemaVersion = 5;
 
     private readonly IFileSystem _fileSystem;
     private readonly AtomicCacheIo _io;

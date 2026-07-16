@@ -11,4 +11,8 @@ public sealed class MemberInfo
     [Key(3)] public required string Signature { get; init; }
     [Key(4)] public required int StartLine { get; init; }
     [Key(5)] public required int LineCount { get; init; }
+    // Framework-invocation markers ([OperationContract]/[DataMember]/[Fact]/…). None (=0) for ordinary members;
+    // a set bit means the member is invoked by a framework with no C# caller, so it is not dead. Cheap byte flag
+    // rather than separate records — these markers number in the thousands across a real codebase.
+    [Key(6)] public MemberRootKind RootKinds { get; init; } = MemberRootKind.None;
 }
