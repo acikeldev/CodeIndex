@@ -35,7 +35,7 @@ internal sealed class ParallelScanner
     public ScanOutcome Scan(
         IReadOnlyList<SourceFileIndex> files,
         Func<string, bool> lineMatcher,
-        Func<string[], int, string> renderSample,
+        Func<SourceFileIndex, string[], int, string> renderSample,
         int perFileCap,
         Func<string, bool>? nonCodeLineClassifier = null)
     {
@@ -72,7 +72,7 @@ internal sealed class ParallelScanner
 
                 if (perFileCap <= 0 || (samples?.Count ?? 0) < perFileCap)
                 {
-                    (samples ??= []).Add(renderSample(lines, i));
+                    (samples ??= []).Add(renderSample(file, lines, i));
                 }
             }
 

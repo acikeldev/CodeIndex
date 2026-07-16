@@ -52,9 +52,9 @@ public sealed class SearchTextToolTests
         output.Should().Contain("A.cs(1)");
         output.Should().Contain("== Proj/A.cs ==");
         output.Should().Contain("needle");
-        // The find_references-only 'Usage:' facet must NOT leak into search_text (which matches string literals
-        // by design); the shared formatter keeps ClassifyReferences off for search_text.
-        output.Should().NotContain("Usage:");
+        // search_text now classifies matches prod/test/generated (the hit is in method M of class A).
+        output.Should().Contain("Usage: prod 1");
+        output.Should().Contain("«A.M»");
     }
 
     [Fact]
@@ -125,6 +125,8 @@ public sealed class SearchTextToolTests
         output.Should().Contain("line-before");
         output.Should().Contain("the-needle-line");
         output.Should().Contain("line-after");
+        // Context windows keep their raw form — no per-hit enclosing-symbol tag.
+        output.Should().NotContain("«");
     }
 
     [Fact]

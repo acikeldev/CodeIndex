@@ -14,7 +14,7 @@ public sealed class ParallelScannerTests
             ProjectName = projectName,
         };
 
-    private static string RenderSample(string[] lines, int index) => $"{index}:{lines[index]}";
+    private static string RenderSample(SourceFileIndex file, string[] lines, int index) => $"{index}:{lines[index]}";
 
     [Fact]
     public void Scan_CountsAllMatchingLines_WithoutEarlyBreak()

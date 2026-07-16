@@ -11,7 +11,7 @@ namespace CodeIndex.Mcp;
 public static class SearchTextTool
 {
     [McpServerTool(Name = "search_text")]
-    [Description("Full-text/regex search across indexed C# files — for config keys, error messages, SQL, string literals, TODOs: anything that isn't a symbol name (use search_symbol for those). Grouped by file with a frequency summary and true totals; generated files (designer.cs/Reference.cs/*.g.cs) demoted unless includeGenerated=true.")]
+    [Description("Index-scoped text/regex search that TAGS each hit with its enclosing Type.member and splits matches into production/test/generated — for config keys, error strings, SQL, TODOs when you want that structure (grep can't give it). For plain text where you just need the matching lines, the native grep tool is faster and you use it more fluently. Not for symbol names — use search_symbol. Generated files demoted unless includeGenerated=true.")]
     public static string SearchText(
         ICodeIndexStore index,
         IFileSystem fileSystem,
@@ -53,7 +53,20 @@ public static class SearchTextTool
         ParallelScanner.ScanOutcome outcome = scanner.Scan(
             candidates,
             matcher,
-            (lines, i) => GroupedMatchOutput.RenderSample(lines, i, contextLines, focus),
+            // Tag each hit with its enclosing Type.member (from the index) — the structural context that
+            // differentiates search_text from a plain grep. Only for single-line samples (contextLines==0);
+            // a context window keeps its raw form.
+            (file, lines, i) =>
+            {
+                string rendered = GroupedMatchOutput.RenderSample(lines, i, contextLines, focus);
+                if (contextLines > 0)
+                {
+                    return rendered;
+                }
+
+                string? symbol = SymbolLocator.EnclosingSymbol(file, i + 1);
+                return symbol is null ? rendered : $"{rendered}  «{symbol}»";
+            },
             perFileMax);
 
         if (outcome.Files.Count == 0)
@@ -63,8 +76,10 @@ public static class SearchTextTool
         }
 
         IReadOnlyDictionary<string, string> projectDirs = index.ProjectDirsByName();
+        // ClassifyReferences: text matches split prod/test/generated (useful: "is this TODO in prod or test?").
+        // No nonCode classifier passed — search_text legitimately matches strings/comments, so nothing is excluded.
         return GroupedMatchOutput.Format(outcome.Files, projectDirs, outcome.SkippedFiles,
-            new GroupedMatchOutput.Options(query, "matches", max, perFileMax, includeGenerated));
+            new GroupedMatchOutput.Options(query, "matches", max, perFileMax, includeGenerated, ClassifyReferences: true));
     }
 
     private static Func<string, bool> BuildMatcher(string query, bool isRegex, bool ignoreCase, out string? error)

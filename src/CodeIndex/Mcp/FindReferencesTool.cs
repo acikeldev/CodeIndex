@@ -56,7 +56,7 @@ public static class FindReferencesTool
                     return false;
                 }
             },
-            (lines, i) => GroupedMatchOutput.RenderSample(lines, i, contextLines, symbol),
+            (_, lines, i) => GroupedMatchOutput.RenderSample(lines, i, contextLines, symbol),
             perFileMax,
             // Classify each already-matched line: is every occurrence inside a string literal or a trailing
             // comment? Same timeout swallow as the matcher.
