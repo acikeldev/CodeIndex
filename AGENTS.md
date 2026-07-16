@@ -40,7 +40,7 @@ call re-sends the whole conversation, so a call costs more than the size of its 
 - Read several symbols' source → `get_context_bundle` with all names at once.
 - Orient in unfamiliar code → `get_onboarding` (cached projects + key symbols).
 - Who calls / implements X → `call_hierarchy` / `get_class_hierarchy`.
-- Strings / comments / config → `search_text`.
+- Plain text / strings / config / error messages → native **grep** (faster, and the agent is fluent with it); reach for `search_text` only when you want each hit tagged with its enclosing `Type.member` + prod/test/generated.
 
 When a dossier (`explain_symbol` / `prepare_change`) answers your question, act on it directly — it already
 resolved the members, call sites, and file paths, so don't re-run grep / glob to double-check them. Only follow

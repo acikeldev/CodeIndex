@@ -32,6 +32,8 @@ internal static class ServerPlaybook
         + "gave you. Only follow up when it says so — a truncation note ('Response budget reached' / '... N more\n"
         + "lines') or a section it didn't cover — using the exact call it names (get_symbol_source /\n"
         + "find_references / call_hierarchy).\n\n"
-        + "Only fall back to grep / file reads when the target isn't indexed (non-code files, logs, config) or a\n"
-        + "tool returns nothing.";
+        + "For plain TEXT — strings, error messages, config keys, TODOs, SQL — use the native grep / file tools:\n"
+        + "you use them fluently and they need no schema load. CodeIndex is for SYMBOLS and STRUCTURE. Reach for\n"
+        + "search_text only when you want each text hit tagged with its enclosing Type.member + prod/test/generated\n"
+        + "(which grep can't give). And fall back to grep whenever a CodeIndex tool returns nothing.";
 }

@@ -118,7 +118,8 @@ conversation, so a call costs more than the size of its result:
 - Read several symbols' source -> `get_context_bundle` with all names at once.
 - New to the repo -> `get_onboarding` once (cached projects + key symbols).
 - Who calls / implements X -> `call_hierarchy` / `get_class_hierarchy`.
-- Text / regex (strings, config, comments) -> `search_text`.
+- Plain text / strings / config / error messages -> native **grep** (faster, and you use it fluently);
+  reach for `search_text` only when you want each hit tagged with its enclosing `Type.member` + prod/test/generated.
 
 When a dossier (`explain_symbol` / `prepare_change`) answers your question, act
 on it directly — it already lists the members, call sites, and file paths, so

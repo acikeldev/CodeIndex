@@ -134,7 +134,7 @@ grep/read — and compare the status line. The per-task token deltas above are w
 | Tool | Languages | What it does |
 |------|-----------|--------------|
 | `search_symbol` | C# + TS | Find types/members by name; kind & project filters, token budget |
-| `search_text` | all | Full-text / regex search, grouped by file, generated files demoted |
+| `search_text` | all | Structural text / regex search: each hit tagged with its enclosing `Type.member` + a prod/test/generated split (for plain text, native grep is faster) |
 | `find_references` | C# + TS | Lines referencing a symbol (word-boundary, skips comments) — spans C# **and** TS |
 | `search_structural` | C# + TS | Find by **AST shape**: C# smells (`empty-catch`, `async-void`, `blocking-async`, …) and TS house rules (`inline-style`, `ts-ignore`, `default-export`, `any-type`, …) |
 
