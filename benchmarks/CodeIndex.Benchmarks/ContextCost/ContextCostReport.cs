@@ -1,3 +1,4 @@
+using System.Text;
 using CodeIndex.Abstractions;
 using CodeIndex.Caching;
 using CodeIndex.Indexing;
@@ -127,6 +128,14 @@ internal static class ContextCostReport
             new("Understand the `CodeIndexStore` class and where it's used",
                 () => b.Grep("class CodeIndexStore") + "\n" + b.ReadWhole("CodeIndexStore.cs") + "\n" + b.Grep("CodeIndexStore"),
                 () => ExplainSymbolTool.ExplainSymbol(index, fs, "CodeIndexStore")),
+
+            // 10 — Which methods contain a phrase, and is each prod or test? grep prints the raw hit lines
+            //     (prod/test IS derivable from the paths), but to name the ENCLOSING METHOD of each hit the
+            //     agent must read a window around it; search_text tags every hit with its «Type.member» and
+            //     prints a prod/test/generated tally in one call — the structural context grep cannot emit.
+            new("Which methods contain the phrase \"not indexed\", and is each in production or test code?",
+                () => GrepThenWindowEachHit(b, "not indexed"),
+                () => SearchTextTool.SearchText(index, fs, "not indexed")),
         ];
     }
 
@@ -136,6 +145,35 @@ internal static class ContextCostReport
         (string Rel, int Line)? hit = b.Locate(pattern);
         string window = hit is { } h ? b.ReadRange(h.Rel, Math.Max(1, h.Line - 5), 30) : string.Empty;
         return grep + "\n" + window + "\n";
+    }
+
+    // Models "grep the token, then read a ~30-line window around EACH hit to recover its enclosing method" —
+    // what an agent must do when the question asks which method each hit sits in. Prod/test is left to the
+    // paths grep already prints; the per-hit windows are the extra cost search_text avoids by tagging inline.
+    private static string GrepThenWindowEachHit(BaselineAgent b, string pattern)
+    {
+        string grep = b.Grep(pattern);
+        StringBuilder sb = new();
+        sb.Append(grep);
+        foreach (string line in grep.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            int firstColon = line.IndexOf(':');
+            if (firstColon < 0)
+            {
+                continue;
+            }
+
+            int secondColon = line.IndexOf(':', firstColon + 1);
+            if (secondColon < 0 || !int.TryParse(line[(firstColon + 1)..secondColon], out int hitLine))
+            {
+                continue;
+            }
+
+            string rel = line[..firstColon];
+            sb.Append('\n').Append(b.ReadRange(rel, Math.Max(1, hitLine - 5), 30));
+        }
+
+        return sb.ToString();
     }
 
     private static double Cut(long baseline, long codeIndex) =>

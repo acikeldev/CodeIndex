@@ -46,31 +46,35 @@ so these reductions are a **floor**, not a best case.
 
 | # | Question a coding agent gets | Baseline (grep+read) | CodeIndex | Reduction |
 |---|------------------------------|---------------------:|----------:|----------:|
-| 1 | List the full API of the `CodeIndexStore` class | 12,956 | 1,068 | **−91.8%** |
+| 1 | List the full API of the `CodeIndexStore` class | 12,956 | 1,070 | **−91.7%** |
 | 2 | Outline the types & members of `RepositoryWatcher.cs` | 3,538 | 398 | **−88.8%** |
-| 3 | Show the source of `IsGenerated`, `EstimateTokens`, `IsWithinRepo` | 2,945 | 357 | **−87.9%** |
-| 4 | Which classes implement `IFileSystem`? | 3,206 | 65 | **−98.0%** |
-| 5 | Find every use of the `ReadFileLines` method | 688 | 303 | −56.0% |
-| 6 | Where is the `CODEINDEX_ROOT` env var read? | 179 | 81 | −54.7% |
-| 7 | New here — what are the most important types to read first? | 25,009 | 2,012 | **−92.0%** |
-| 8 | Are there any empty `catch` blocks? | 13,971 | 103 | **−99.3%** |
-| 9 | Understand the `CodeIndexStore` class and where it's used | 23,188 | 4,187 | **−81.9%** |
-| | **TOTAL (9 tasks)** | **85,680** | **8,574** | **−90.0%** |
+| 3 | Show the source of `IsGenerated`, `EstimateTokens`, `IsWithinRepo` | 2,945 | 364 | **−87.6%** |
+| 4 | Which classes implement `IFileSystem`? | 3,185 | 76 | **−97.6%** |
+| 5 | Find every use of the `ReadFileLines` method | 688 | 315 | −54.2% |
+| 6 | Where is the `CODEINDEX_ROOT` env var read? | 179 | 108 | −39.7% |
+| 7 | New here — what are the most important types to read first? | 25,009 | 2,016 | **−91.9%** |
+| 8 | Are there any empty `catch` blocks? | 14,361 | 103 | **−99.3%** |
+| 9 | Understand the `CodeIndexStore` class and where it's used | 24,265 | 4,208 | **−82.7%** |
+| 10 | Which methods contain the phrase "not indexed", and is each in production or test code? | 3,077 | 359 | **−88.3%** |
+| | **TOTAL (10 tasks)** | **90,203** | **9,017** | **−90.0%** |
 
 **90% fewer input tokens** across the suite. Tasks 5 and 6 are deliberate honesty anchors — pure "list the
-matches" lookups where grep is genuinely competitive and CodeIndex only wins ~55%. Task 9 is the flagship
-`explain_symbol` dossier: its 4,187 tokens are the *largest* CodeIndex response here (identity + members +
+matches" lookups where grep is genuinely competitive and CodeIndex wins only ~40–54%. Task 9 is the flagship
+`explain_symbol` dossier: its 4,208 tokens are the *largest* CodeIndex response here (identity + members +
 source + references in one payload), yet it still beats the grep chain — locate the class, read the whole
-~1,100-line file, grep the usages — by ~82%, in **one** call instead of several.
+~1,100-line file, grep the usages — by ~83%, in **one** call instead of several. Task 10 is where structured
+text search earns its keep: grep can print the matching lines but not the *method* each sits in, so it must
+read a window around every hit; `search_text` tags each hit with its enclosing `Type.member` and adds a
+prod/test tally in one call — a −88% cut.
 
 **What that costs.** At Claude Opus 4.8 input pricing (**$5 / 1M tokens**, as of 2026-07):
 
 | | Baseline | CodeIndex |
 |---|---:|---:|
-| This 9-task suite, once | $0.43 | $0.04 |
-| Per 1,000 such lookups | **$47.60** | **$4.76** |
+| This 10-task suite, once | $0.45 | $0.05 |
+| Per 1,000 such lookups | **$45.10** | **$4.51** |
 
-~$43 saved per thousand lookups.
+~$41 saved per thousand lookups.
 
 **Read this as a per-operation number, not a whole-session number.** It measures the *code-navigation* slice of a
 task in isolation. A real agent session also spends tokens on reasoning, editing, running tests, and its own

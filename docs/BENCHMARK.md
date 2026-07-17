@@ -5,12 +5,12 @@ them — one is a **per-operation** number, the other is a **whole-session** num
 
 | | What it measures | Where | Headline |
 |---|---|---|---|
-| **Context-cost** | Tokens ingested to answer one code-navigation *operation*, CodeIndex vs grep+read | `benchmarks/CodeIndex.Benchmarks/ContextCost` | ~93% fewer tokens on the navigation slice |
+| **Context-cost** | Tokens ingested to answer one code-navigation *operation*, CodeIndex vs grep+read | `benchmarks/CodeIndex.Benchmarks/ContextCost` | ~90% fewer tokens on the navigation slice |
 | **Session A/B** | Total `$` / tokens / wall-clock to complete one real *task*, with vs without CodeIndex | this doc (you run it) | The realistic, smaller, session-level saving |
 
 ## 1. Context-cost (per-operation) — and why it isn't the whole story
 
-The [context-cost benchmark](../README.md#the-numbers) shows a ~93% token reduction across 8 navigation tasks.
+The [context-cost benchmark](../README.md#the-numbers) shows a ~90% token reduction across 10 navigation tasks.
 That number is **real and reproducible**, but it is deliberately narrow: it isolates the code-navigation slice of
 work and measures nothing else.
 
@@ -18,7 +18,7 @@ A real agent session is not 8 back-to-back lookups. It also spends tokens on rea
 builds/tests and reading their output, and writing its own explanations — none of which CodeIndex changes. It also
 re-sends context each turn (with prompt caching absorbing much of the repeat cost). So:
 
-> **Do not expect a 93% session-level saving.** 93% is the reduction on the navigation *portion*. The
+> **Do not expect a 90% session-level saving.** 90% is the reduction on the navigation *portion*. The
 > whole-session saving is smaller and depends entirely on how navigation-heavy the task is.
 
 Rough intuition for where a task lands:
