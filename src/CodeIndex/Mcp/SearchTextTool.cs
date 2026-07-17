@@ -64,6 +64,11 @@ public static class SearchTextTool
                     return rendered;
                 }
 
+                // Map the scanner's 0-based line index into the parser's 1-based line space (i + 1). This assumes
+                // both readers split lines identically — true for \r \n \r\n, but Roslyn's line table also counts
+                // the rare Unicode separators U+0085/U+2028/U+2029 that File.ReadAllLines does not, so a .cs file
+                // containing one can shift a boundary-adjacent hit's tag by a line. Annotation-only: the match
+                // counts and the prod/test/generated facet never consult SymbolLocator.
                 string? symbol = SymbolLocator.EnclosingSymbol(file, i + 1);
                 return symbol is null ? rendered : $"{rendered}  «{symbol}»";
             },

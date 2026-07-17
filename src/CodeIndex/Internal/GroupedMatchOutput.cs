@@ -58,7 +58,9 @@ internal static class GroupedMatchOutput
         string summary = $"{opt.Subject}: {totalMatches} {opt.Label} in {fileCount} files — {summaryList}";
 
         // Reference facets: split the total into prod/test/generated (by file), minus a heuristic string/comment
-        // count. Gated so search_text (which legitimately matches string literals) is byte-for-byte unchanged.
+        // count. The string/comment subtraction only fires when a caller supplies a nonCode classifier
+        // (find_references does); search_text sets ClassifyReferences:true but passes no classifier, so nothing is
+        // excluded there — it legitimately matches string literals, and the facet only re-partitions the same total.
         string? facetLine = opt.ClassifyReferences ? BuildFacetLine(hits, opt.Label, projectDirByName) : null;
 
         // Body order: demote generated (unless includeGenerated) → count desc → relative path.
