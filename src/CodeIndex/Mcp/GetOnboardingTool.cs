@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text;
 using CodeIndex.Abstractions;
 using CodeIndex.Caching;
+using CodeIndex.Internal;
 using CodeIndex.Models;
 using ModelContextProtocol.Server;
 
@@ -29,14 +30,22 @@ public static class GetOnboardingTool
         string cachePath = Path.Combine(index.CacheDirectory, CacheFileName);
 
         string? cached = TryLoad(fileSystem, cachePath, signature);
+        string digest;
         if (cached is not null)
         {
-            return cached;
+            digest = cached;
+        }
+        else
+        {
+            digest = Build(index);
+            TrySave(fileSystem, cachePath, signature, digest);
         }
 
-        string digest = Build(index);
-        TrySave(fileSystem, cachePath, signature, digest);
-        return digest;
+        // Cross-session notes ride on TOP of the build-keyed digest (read live every call), so a reindex never
+        // drops them and a new note shows up immediately without invalidating the cached digest. Empty when the
+        // repo has never used remember, keeping the output byte-identical in that case.
+        string notes = SessionNotes.RenderSection(fileSystem, index.CacheDirectory);
+        return notes.Length == 0 ? digest : digest.TrimEnd() + "\n" + notes;
     }
 
     // The cache is valid only for the exact index it was built from; the build stamp makes a code change miss.
