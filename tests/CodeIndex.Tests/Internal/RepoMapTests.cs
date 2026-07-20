@@ -109,6 +109,51 @@ public class RepoMapTests
     }
 
     [Fact]
+    public void SqrtDamping_RepetitionHelpsButSublinearly()
+    {
+        // Several referrer files each name TargetX once and TargetY nine times. Because both targets compete for
+        // the SAME referrers' out-flow, their rank ratio reflects the edge-share ratio: sqrt(9):sqrt(1) = 3:1 under
+        // sqrt damping, but 9:1 under linear weighting. So a ratio comfortably below the linear 9x — while still
+        // above 1 (repetition does help) — pins the sqrt behaviour.
+        InMemoryFileSystem fs = new();
+        List<SourceFileIndex> files = new();
+
+        void Add(string name, string content)
+        {
+            string path = Path.Combine(ProjDir, name);
+            fs.AddFile(path, content);
+            SourceFileIndex? parsed = new SourceFileParser(fs).Parse(path, ProjectName);
+            parsed.Should().NotBeNull();
+            files.Add(parsed!);
+        }
+
+        Add("TargetX.cs", "namespace N;\npublic class TargetX { }");
+        Add("TargetY.cs", "namespace N;\npublic class TargetY { }");
+        for (int i = 0; i < 4; i++)
+        {
+            System.Text.StringBuilder body = new();
+            body.Append($"namespace N;\npublic class Referrer{i} {{\n");
+            body.Append("    private TargetX _x;\n");
+            for (int j = 0; j < 9; j++)
+            {
+                body.Append($"    private TargetY _y{j};\n");
+            }
+
+            body.Append("}");
+            Add($"Referrer{i}.cs", body.ToString());
+        }
+
+        RepoMap map = RepoMap.Build(files, fs);
+        List<RepoMap.RankedSymbol> ranked = map.Rank([], null);
+        double scoreX = ranked.First(r => r.Signature.Contains("TargetX", StringComparison.Ordinal)).Score;
+        double scoreY = ranked.First(r => r.Signature.Contains("TargetY", StringComparison.Ordinal)).Score;
+
+        double ratio = scoreY / scoreX;
+        ratio.Should().BeGreaterThan(1.5, "9x repetition must still rank TargetY above TargetX");
+        ratio.Should().BeLessThan(6.0, $"sqrt damping keeps the ratio near 3:1, well below the linear 9:1 (was {ratio:F2})");
+    }
+
+    [Fact]
     public void EmptyIndex_GracefulMessage()
     {
         InMemoryFileSystem fs = new();

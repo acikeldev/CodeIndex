@@ -127,7 +127,10 @@ internal sealed class RepoMap
         }
 
         // Edges: file X mentioning name S (defined in nodes D, excluding X) contributes weight
-        // mentions(X,S) * idf(S) / |D| to each edge X→d.
+        // sqrt(mentions(X,S)) * idf(S) / |D| to each edge X→d. The sqrt DAMPENS repetition (Aider does the same):
+        // a file that names a type 50× isn't 50× more related to it than one that names it once — the relationship
+        // exists, its strength shouldn't scale linearly with how chatty the referring file is. This keeps one
+        // loop-heavy file from dominating the graph while breadth (many distinct referrers) still accrues fully.
         Dictionary<int, double>[] outEdges = new Dictionary<int, double>[n];
         for (int i = 0; i < n; i++)
         {
@@ -138,7 +141,7 @@ internal sealed class RepoMap
                 {
                     continue;
                 }
-                double share = mention.Value * w / definers.Count;
+                double share = Math.Sqrt(mention.Value) * w / definers.Count;
                 foreach (int d in definers)
                 {
                     if (d == i)
