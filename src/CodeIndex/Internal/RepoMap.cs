@@ -339,6 +339,9 @@ internal sealed class RepoMap
         return rank;
     }
 
+    // Reserve for the trailing footer line so the body binary-search leaves room for it under the budget.
+    private const int FooterHeadroom = 40;
+
     /// <summary>Render the top-ranked symbols grouped by file, elided to signatures, filling up to
     /// <paramref name="tokenBudget"/> (estimated via <see cref="Output.EstimateTokens"/>).</summary>
     public static string Render(List<RankedSymbol> ranked, int tokenBudget)
@@ -349,35 +352,54 @@ internal sealed class RepoMap
         }
 
         int budget = Math.Clamp(tokenBudget, 50, Output.MaxResponseTokens);
+
+        // Binary-search the largest top-K prefix whose rendering fits the budget. The token cost is monotonic in K,
+        // so this packs the budget tighter than a greedy first-overflow break — and evaluates the estimate O(log n)
+        // times instead of re-estimating the whole buffer on every symbol (Aider budgets its repo map the same way).
+        int lo = 0, hi = ranked.Count;
+        while (lo < hi)
+        {
+            int mid = (lo + hi + 1) / 2;
+            if (Output.EstimateTokens(RenderPrefix(ranked, mid)) <= budget - FooterHeadroom)
+            {
+                lo = mid;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+
+        int shown = Math.Max(1, lo); // always show at least the top symbol, even on a tiny budget
+        StringBuilder sb = new(RenderPrefix(ranked, shown));
+        sb.AppendLine();
+        sb.AppendLine(shown < ranked.Count
+            ? $"… showing top {shown} of {ranked.Count} ranked symbols (raise tokenBudget, or pass focus=/project= to narrow)."
+            : $"{shown} symbols.");
+        return sb.ToString();
+    }
+
+    // The top <paramref name="count"/> ranked symbols grouped by file (signatures only). Deterministic and
+    // idempotent so the budget binary-search can call it repeatedly.
+    private static string RenderPrefix(List<RankedSymbol> ranked, int count)
+    {
         StringBuilder sb = new();
         sb.AppendLine("# Repo map — most important symbols (PageRank-ranked, token-budgeted)");
         sb.AppendLine();
 
         string? currentFile = null;
-        int shown = 0;
-        foreach (RankedSymbol r in ranked)
+        for (int i = 0; i < count; i++)
         {
-            string header = r.SourceFilePath != currentFile ? $"\n## {r.FileName} ({r.ProjectName})\n" : string.Empty;
-            string line = $"  {r.Kind} {Output.ClipLine(r.Signature, max: 160)} [{r.StartLine}]\n";
-
-            if (Output.EstimateTokens(sb.ToString()) + Output.EstimateTokens(header + line) > budget)
+            RankedSymbol r = ranked[i];
+            if (r.SourceFilePath != currentFile)
             {
-                break;
-            }
-
-            if (header.Length > 0)
-            {
-                sb.Append(header);
+                sb.Append($"\n## {r.FileName} ({r.ProjectName})\n");
                 currentFile = r.SourceFilePath;
             }
-            sb.Append(line);
-            shown++;
+
+            sb.Append($"  {r.Kind} {Output.ClipLine(r.Signature, max: 160)} [{r.StartLine}]\n");
         }
 
-        sb.AppendLine();
-        sb.AppendLine(shown < ranked.Count
-            ? $"… showing top {shown} of {ranked.Count} ranked symbols (raise tokenBudget, or pass focus=/project= to narrow)."
-            : $"{shown} symbols.");
         return sb.ToString();
     }
 

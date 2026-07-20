@@ -109,6 +109,20 @@ public class RepoMapTests
     }
 
     [Fact]
+    public void BinarySearchBudget_RespectsBudgetAndPacksMonotonically()
+    {
+        string tiny = RenderMap([], tokenBudget: 120, project: null);
+        string mid = RenderMap([], tokenBudget: 600, project: null);
+
+        Output.EstimateTokens(tiny).Should().BeLessThanOrEqualTo(120, "the rendered map must fit the requested token budget");
+        CountSymbolLines(mid).Should().BeGreaterThanOrEqualTo(CountSymbolLines(tiny), "a larger budget shows at least as many symbols");
+        CountSymbolLines(tiny).Should().BeGreaterThanOrEqualTo(1, "at least the top symbol is always shown");
+    }
+
+    private static int CountSymbolLines(string rendered) =>
+        rendered.Split('\n').Count(l => l.StartsWith("  ", StringComparison.Ordinal) && l.Contains('['));
+
+    [Fact]
     public void CodeOnlyEdges_CommentAndStringMentionsDoNotRank()
     {
         // Beta is referenced in CODE (a field); Alpha is named only in a string literal and a comment. Only the
