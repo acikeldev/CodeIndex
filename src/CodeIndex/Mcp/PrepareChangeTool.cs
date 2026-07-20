@@ -19,14 +19,17 @@ public static class PrepareChangeTool
     private const int RefPerFile = 5;
 
     [McpServerTool(Name = "prepare_change")]
-    [Description("One-call edit briefing for a symbol you're about to change: its definition, every call site (widened find_references), enclosing-member-labelled callers, and — for a type/interface — implementors/overrides. The full blast radius in one response instead of a pre-edit multi-tool sweep. Pass namespace=/project= to disambiguate.")]
+    [Description("One-call edit briefing for a symbol you're about to change: its definition, every call site (widened find_references), enclosing-member-labelled callers, and — for a type/interface — implementors/overrides. The full blast radius in one response instead of a pre-edit multi-tool sweep. Pass namespace=/project= to disambiguate. Pass verbosity='concise' to scope the blast radius without the definition body.")]
     public static string PrepareChange(
         ICodeIndexStore index,
         IFileSystem fileSystem,
         [Description("Symbol name — a type or a method/member")] string symbol,
         [Description("Optional namespace to disambiguate (full or trailing segment)")] string? @namespace = null,
-        [Description("Optional project to disambiguate")] string? project = null)
+        [Description("Optional project to disambiguate")] string? project = null,
+        [Description("'detailed' (default, includes the definition body) or 'concise' (call sites + callers + implementors only, body omitted — fetch it with get_symbol_source)")] string? verbosity = null)
     {
+        bool concise = DossierBuilder.IsConcise(verbosity);
+        string tag = concise ? " [concise]" : string.Empty;
         TypeResolver.ResolvedType? resolved = TypeResolver.Resolve(index, symbol, @namespace, project, out string? error);
         if (resolved is not null)
         {
@@ -34,12 +37,12 @@ public static class PrepareChangeTool
             // otherwise miss a symbol resolved case-insensitively (see ExplainSymbolTool for the same fix).
             List<(string Heading, string Body)> sections = new()
             {
-                ("Definition", DossierBuilder.RenderSource(index, fileSystem, resolved.SourceFilePath, resolved.DisplayFile, resolved.StartLine, resolved.LineCount)),
+                ("Definition", DossierBuilder.RenderSource(index, fileSystem, resolved.SourceFilePath, resolved.DisplayFile, resolved.StartLine, resolved.LineCount, concise)),
                 ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, resolved.Name, project, max: RefMax, perFileMax: RefPerFile)),
                 ("Implementors / overrides", GetClassHierarchyTool.GetClassHierarchy(index, resolved.Name, @namespace, project)),
                 ("Callers", CallHierarchyTool.CallHierarchy(index, resolved.Name, "callers", "both", project)),
             };
-            return DossierBuilder.Assemble($"# prepare_change: {resolved.TypeKeyword} {resolved.Name} ({resolved.Project})", sections);
+            return DossierBuilder.Assemble($"# prepare_change: {resolved.TypeKeyword} {resolved.Name} ({resolved.Project}){tag}", sections);
         }
 
         if (error is not null && error.StartsWith("AMBIGUOUS", StringComparison.Ordinal))
@@ -58,10 +61,10 @@ public static class PrepareChangeTool
         SymbolSearchResult best = results[0];
         List<(string Heading, string Body)> memberSections = new()
         {
-            ("Definition", DossierBuilder.RenderSource(index, fileSystem, best.SourceFilePath, best.File, best.StartLine, best.LineCount)),
+            ("Definition", DossierBuilder.RenderSource(index, fileSystem, best.SourceFilePath, best.File, best.StartLine, best.LineCount, concise)),
             ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project, max: RefMax, perFileMax: RefPerFile)),
             ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
         };
-        return DossierBuilder.Assemble($"# prepare_change: {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, index.ProjectDirsByName())}:{best.StartLine}+{best.LineCount}] ({best.Project})", memberSections);
+        return DossierBuilder.Assemble($"# prepare_change: {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, index.ProjectDirsByName())}:{best.StartLine}+{best.LineCount}] ({best.Project}){tag}", memberSections);
     }
 }

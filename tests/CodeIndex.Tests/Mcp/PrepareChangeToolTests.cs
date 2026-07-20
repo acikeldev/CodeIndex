@@ -91,4 +91,23 @@ public sealed class PrepareChangeToolTests
 
         output.Should().Contain("No symbol found matching 'Greetr'.");
     }
+
+    [Fact]
+    public void Concise_OmitsDefinitionBodyKeepsBlastRadius()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+
+        string detailed = PrepareChangeTool.PrepareChange(store, _fs, "Greeter");
+        string concise = PrepareChangeTool.PrepareChange(store, _fs, "Greeter", verbosity: "concise");
+
+        // Definition body dropped, but the blast-radius sections (the point of the tool) remain.
+        detailed.Should().Contain("Hi {name}");
+        concise.Should().NotContain("Hi {name}");
+        concise.Should().Contain("[concise]");
+        concise.Should().Contain("## Call sites");
+        concise.Should().Contain("## Callers");
+        concise.Should().Contain("get_symbol_source(");
+        concise.Length.Should().BeLessThan(detailed.Length);
+    }
 }

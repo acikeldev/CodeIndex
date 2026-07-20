@@ -48,8 +48,21 @@ internal static class DossierBuilder
         return sb.ToString().TrimEnd() + "\n";
     }
 
-    public static string RenderSource(ICodeIndexStore index, IFileSystem fileSystem, string sourceFilePath, string displayFile, int startLine, int lineCount)
+    /// <summary>True when the caller asked for the concise tier (signatures + references only, bodies omitted).
+    /// Anything other than "concise" (including null) is the default detailed tier.</summary>
+    public static bool IsConcise(string? verbosity) =>
+        string.Equals(verbosity, "concise", StringComparison.OrdinalIgnoreCase);
+
+    public static string RenderSource(ICodeIndexStore index, IFileSystem fileSystem, string sourceFilePath, string displayFile, int startLine, int lineCount, bool concise = false)
     {
+        // Concise tier: omit the body entirely (the token-heaviest section) and leave an exact pointer. The
+        // structural sections around it already carry the signatures, so this is the ~1/3-token "signatures + refs"
+        // response — the agent opts back into the body with the named call only when it actually needs to read code.
+        if (concise)
+        {
+            return $"_(concise — {lineCount}-line body omitted; get_symbol_source(\"{displayFile}\", {startLine}, {lineCount}) to read it)_\n";
+        }
+
         int shown = Math.Min(lineCount, MaxSourceLines);
         string source = GetSymbolSourceTool.GetSymbolSource(index, fileSystem, sourceFilePath, startLine, shown);
         if (GetSymbolSourceTool.IsErrorResult(source))

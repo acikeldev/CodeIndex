@@ -170,4 +170,65 @@ public sealed class ExplainSymbolToolTests
 
         output.Should().Contain("Response budget reached");
     }
+
+    [Fact]
+    public void Concise_Type_OmitsSourceBodyKeepsStructureAndPointer()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+
+        string detailed = ExplainSymbolTool.ExplainSymbol(store, _fs, "Greeter");
+        string concise = ExplainSymbolTool.ExplainSymbol(store, _fs, "Greeter", verbosity: "concise");
+
+        // The method body's string literal lives ONLY in the rendered source, not in Members/References.
+        detailed.Should().Contain("Hi {name}");
+        concise.Should().NotContain("Hi {name}");
+
+        // Structure survives, the tier is tagged, and the exact re-fetch call is offered.
+        concise.Should().Contain("[concise]");
+        concise.Should().Contain("## Members");
+        concise.Should().Contain("## References");
+        concise.Should().Contain("get_symbol_source(");
+        concise.Length.Should().BeLessThan(detailed.Length, "omitting the body must shrink the response");
+    }
+
+    [Fact]
+    public void Concise_Member_OmitsBodyButKeepsReferencesAndCallers()
+    {
+        // Multi-line body with an interior token that never appears on the signature line (which find_references
+        // echoes) nor at the call site — so it can only reach the response via the rendered Source body.
+        _fs.AddFile(@"C:\repo\App.slnx", "<Solution>\n  <Project Path=\"Core/Core.csproj\" />\n</Solution>\n");
+        _fs.AddFile(@"C:\repo\Core\Core.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
+        _fs.AddFile(@"C:\repo\Core\Worker.cs",
+            "namespace Core;\npublic class Worker\n{\n    public int Compute(int n)\n    {\n        int uniqueBodyMarker = n * 2;\n        return uniqueBodyMarker;\n    }\n}\n");
+        _fs.AddFile(@"C:\repo\Core\Caller.cs",
+            "namespace Core;\npublic class Caller\n{\n    public void Go() { int x = new Worker().Compute(3); }\n}\n");
+        CodeIndexStore store = Build();
+
+        string detailed = ExplainSymbolTool.ExplainSymbol(store, _fs, "Compute");
+        string concise = ExplainSymbolTool.ExplainSymbol(store, _fs, "Compute", verbosity: "concise");
+
+        detailed.Should().Contain("uniqueBodyMarker");    // body rendered in the Source section
+        concise.Should().NotContain("uniqueBodyMarker");  // body omitted in concise
+        concise.Should().Contain("[concise]");
+        concise.Should().Contain("## References");
+        concise.Should().Contain("## Callers");
+        concise.Should().Contain("get_symbol_source(");
+        concise.Length.Should().BeLessThan(detailed.Length);
+    }
+
+    [Fact]
+    public void Verbosity_DefaultsToDetailed_AndUnknownValueIsDetailed()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+
+        string dflt = ExplainSymbolTool.ExplainSymbol(store, _fs, "Greeter");
+        string bogus = ExplainSymbolTool.ExplainSymbol(store, _fs, "Greeter", verbosity: "verbose");
+
+        // Anything that isn't "concise" is the detailed tier → byte-identical to the default (no behaviour change).
+        bogus.Should().Be(dflt);
+        dflt.Should().NotContain("[concise]");
+        dflt.Should().Contain("Hi {name}");
+    }
 }
