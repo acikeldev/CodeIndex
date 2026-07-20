@@ -25,6 +25,8 @@ internal static class ServerPlaybook
         + "- Starting an unfamiliar task -> get_task_context '<task>' (task-focused symbols + a dossier).\n"
         + "- Who calls / implements X -> call_hierarchy or get_class_hierarchy (resolved, not a text guess;\n"
         + "  get_class_hierarchy transitive=true walks the whole subtree in one call).\n"
+        + "- Follow a call chain several levels (downstream flow or upstream impact) -> trace_calls in ONE call\n"
+        + "  (direction=callees/callers); do NOT hand-run call_hierarchy node by node.\n"
         + "- Read one member's body -> get_symbol_source member='Name' (range resolved from the index, no line\n"
         + "  numbers needed) instead of reading the whole file.\n\n"
         + "When a dossier answers your question, act on it directly: explain_symbol / prepare_change already\n"

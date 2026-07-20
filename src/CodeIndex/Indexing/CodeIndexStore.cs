@@ -969,6 +969,9 @@ internal sealed class CodeIndexStore : ICodeIndexStore
         };
     }
 
+    public string GetCallTrace(string method, string direction, string? project, int maxDepth, int maxNodes) =>
+        CallHierarchy.Trace(_fileSystem, Current.AllSourceFiles, method, direction, project, maxDepth, maxNodes);
+
     // Candidate-name sets for did-you-mean suggestions (lock-free; each captures the current snapshot once and any
     // iterator closes over that captured immutable snapshot, never a re-read of Current).
     public IEnumerable<string> FileNames() => Current.SourceFilesByName.Keys;

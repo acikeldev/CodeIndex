@@ -133,6 +133,217 @@ internal static class CallHierarchy
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Transitive call trace in ONE call: follows the callee chain (downstream execution flow) or the caller chain
+    /// (upstream impact) up to <paramref name="maxDepth"/> levels, so an agent needn't hand-run call_hierarchy per
+    /// node — each such hop is a turn that re-sends the whole transcript. Name-based + C# only (same heuristic
+    /// limits as call_hierarchy). 'callees' parses only the methods actually on the traced paths (cheap, memoized);
+    /// 'callers' inverts the graph with one parse pass over the (project-scoped) files, so scope it on large repos.
+    /// Cycles and repeats are printed once as "(↑ already traced)"; the walk is bounded by depth and maxNodes.
+    /// </summary>
+    public static string Trace(IFileSystem fileSystem, IReadOnlyList<SourceFileIndex> files, string method, string direction, string? project, int maxDepth, int maxNodes)
+    {
+        if (string.IsNullOrWhiteSpace(method))
+        {
+            return "trace_calls: provide a method name.";
+        }
+
+        bool callees = !string.Equals((direction ?? "callees").Trim(), "callers", StringComparison.OrdinalIgnoreCase);
+
+        List<SourceFileIndex> candidates = files
+            .Where(f => f.Language == Language.CSharp)
+            .Where(f => project is null || f.ProjectName.Equals(project, StringComparison.OrdinalIgnoreCase))
+            .Where(f => !GeneratedFileClassifier.IsGenerated(f.SourceFilePath))
+            .ToList();
+
+        // Definition locations + which files define each method name — straight from the index, no parse.
+        Dictionary<string, List<SourceFileIndex>> definersByName = new(StringComparer.Ordinal);
+        Dictionary<string, string> defLoc = new(StringComparer.Ordinal);
+        foreach (SourceFileIndex f in candidates)
+        {
+            foreach (Models.TypeInfo t in f.Types)
+            {
+                foreach (Models.MemberInfo m in t.Members)
+                {
+                    if (m.Kind != Models.SymbolKind.Method)
+                    {
+                        continue;
+                    }
+
+                    if (!definersByName.TryGetValue(m.Name, out List<SourceFileIndex>? list))
+                    {
+                        list = new List<SourceFileIndex>();
+                        definersByName[m.Name] = list;
+                    }
+
+                    list.Add(f);
+                    defLoc.TryAdd(m.Name, $"{f.FileName}:{m.StartLine}");
+                }
+            }
+        }
+
+        FileReader reader = new(fileSystem);
+
+        // Lazy callee extraction: parse only the definer files of names we actually reach (memoized).
+        Dictionary<string, List<string>> calleeCache = new(StringComparer.Ordinal);
+        List<string> CalleesOf(string name)
+        {
+            if (calleeCache.TryGetValue(name, out List<string>? cached))
+            {
+                return cached;
+            }
+
+            SortedSet<string> set = new(StringComparer.Ordinal);
+            if (definersByName.TryGetValue(name, out List<SourceFileIndex>? defs))
+            {
+                foreach (SourceFileIndex f in defs)
+                {
+                    FileReader.ReadResult read = reader.ReadFileLines(f.SourceFilePath);
+                    if (!read.Success)
+                    {
+                        continue;
+                    }
+
+                    CompilationUnitSyntax root;
+                    try { root = CSharpSyntaxTree.ParseText(string.Join("\n", read.Lines!), path: f.SourceFilePath).GetCompilationUnitRoot(); }
+                    catch { continue; }
+
+                    foreach (MethodDeclarationSyntax decl in root.DescendantNodes().OfType<MethodDeclarationSyntax>().Where(d => d.Identifier.Text == name))
+                    {
+                        foreach (InvocationExpressionSyntax inv in decl.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                        {
+                            string? callee = InvokedName(inv);
+                            if (callee is not null)
+                            {
+                                set.Add(callee);
+                            }
+                        }
+                    }
+                }
+            }
+
+            List<string> result = set.ToList();
+            calleeCache[name] = result;
+            return result;
+        }
+
+        // Full inverse index for 'callers' (invokedName -> enclosing members) — one parse pass, built on demand.
+        Dictionary<string, SortedSet<string>> callersByName = new(StringComparer.Ordinal);
+        if (!callees)
+        {
+            ConcurrentBag<(string Callee, string Caller)> pairs = new();
+            Parallel.ForEach(candidates, f =>
+            {
+                FileReader.ReadResult read = reader.ReadFileLines(f.SourceFilePath);
+                if (!read.Success)
+                {
+                    return;
+                }
+
+                CompilationUnitSyntax root;
+                try { root = CSharpSyntaxTree.ParseText(string.Join("\n", read.Lines!), path: f.SourceFilePath).GetCompilationUnitRoot(); }
+                catch { return; }
+
+                foreach (InvocationExpressionSyntax inv in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                {
+                    string? callee = InvokedName(inv);
+                    if (callee is not null)
+                    {
+                        pairs.Add((callee, EnclosingMember(inv)));
+                    }
+                }
+            });
+
+            foreach ((string callee, string caller) in pairs)
+            {
+                if (!callersByName.TryGetValue(callee, out SortedSet<string>? set))
+                {
+                    set = new SortedSet<string>(StringComparer.Ordinal);
+                    callersByName[callee] = set;
+                }
+
+                set.Add(caller);
+            }
+        }
+
+        // Root must exist in the chosen direction.
+        if (callees && !definersByName.ContainsKey(method))
+        {
+            return $"trace_calls(callees): no C# method named '{method}' is indexed{Scope(project)}. (Name-based + C#-only.)";
+        }
+
+        if (!callees && !callersByName.ContainsKey(method))
+        {
+            return $"trace_calls(callers): no invocations of '{method}' found{Scope(project)}. (Name-based + C#-only.)";
+        }
+
+        StringBuilder sb = new();
+        sb.AppendLine($"trace_calls: {(callees ? "callees" : "callers")} of {method} (depth ≤{maxDepth}, ≤{maxNodes} nodes){Scope(project)}");
+        sb.AppendLine();
+        sb.AppendLine($"{method}{(defLoc.TryGetValue(method, out string? rootLoc) ? $"  [{rootLoc}]" : string.Empty)}");
+
+        HashSet<string> visited = new(StringComparer.Ordinal) { method };
+        int nodeCount = 0;
+        bool truncated = false;
+
+        void Walk(string name, int depth)
+        {
+            if (depth > maxDepth)
+            {
+                return;
+            }
+
+            List<string> children = callees ? CalleesOf(name) : (callersByName.TryGetValue(name, out SortedSet<string>? c) ? c.ToList() : new List<string>());
+            if (children.Count == 0)
+            {
+                return;
+            }
+
+            // Budget spent before we could show this node's children — flag it (a leaf never reaches here).
+            if (nodeCount >= maxNodes)
+            {
+                truncated = true;
+                return;
+            }
+
+            string indent = new string(' ', depth * 2);
+            foreach (string child in children)
+            {
+                if (nodeCount >= maxNodes)
+                {
+                    truncated = true;
+                    return;
+                }
+
+                string loc = defLoc.TryGetValue(child, out string? l) ? $"  [{l}]" : (callees ? "  (external / not indexed)" : string.Empty);
+                if (!visited.Add(child))
+                {
+                    sb.AppendLine($"{indent}{child}{loc} (↑ already traced)");
+                    nodeCount++;
+                    continue;
+                }
+
+                sb.AppendLine($"{indent}{child}{loc}");
+                nodeCount++;
+
+                bool canDescend = callees ? definersByName.ContainsKey(child) : callersByName.ContainsKey(child);
+                if (canDescend)
+                {
+                    Walk(child, depth + 1);
+                }
+            }
+        }
+
+        Walk(method, 1);
+
+        if (truncated)
+        {
+            sb.AppendLine($"\n… trace truncated at {nodeCount} nodes (lower depth, scope with project=, or raise maxNodes).");
+        }
+
+        return sb.ToString();
+    }
+
     private readonly record struct CallerHit(string Project, string Path, string FileName, int Line, string Caller, string Snippet);
 
     private static string RenderCallers(string method, ConcurrentBag<CallerHit> bag, string? project, int max, int perFileCap)
