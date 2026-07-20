@@ -1,6 +1,5 @@
-using System.ComponentModel;
 using System.Reflection;
-using CodeIndex.Mcp;
+using CodeIndex.Tests.Infrastructure;
 
 namespace CodeIndex.Tests.Mcp;
 
@@ -20,37 +19,18 @@ namespace CodeIndex.Tests.Mcp;
 /// </summary>
 public sealed class ToolSchemaBudgetTests
 {
-    private const string McpServerToolTypeName = "ModelContextProtocol.Server.McpServerToolAttribute";
-
-    private static IEnumerable<MethodInfo> ToolMethods()
-    {
-        foreach (Type type in typeof(RepoMapTool).Assembly.GetTypes())
-        {
-            foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
-            {
-                if (method.GetCustomAttributes().Any(a => a.GetType().FullName == McpServerToolTypeName))
-                {
-                    yield return method;
-                }
-            }
-        }
-    }
-
-    // DI-injected service params (the registered interfaces) are not schema; everything else is.
-    private static bool IsSchemaParameter(ParameterInfo p) => !p.ParameterType.IsInterface;
-
     // Description + name characters of the whole tool surface — a stable proxy for the schema's token footprint.
     private static int SurfaceChars()
     {
         int chars = 0;
-        foreach (MethodInfo tool in ToolMethods())
+        foreach (MethodInfo tool in McpToolSurface.ToolMethods())
         {
-            chars += (tool.GetCustomAttribute<DescriptionAttribute>()?.Description?.Length ?? 0);
+            chars += McpToolSurface.ToolDescription(tool)?.Length ?? 0;
             chars += tool.Name.Length;
-            foreach (ParameterInfo p in tool.GetParameters().Where(IsSchemaParameter))
+            foreach (ParameterInfo p in tool.GetParameters().Where(McpToolSurface.IsSchemaParameter))
             {
-                chars += (p.Name?.Length ?? 0);
-                chars += (p.GetCustomAttribute<DescriptionAttribute>()?.Description?.Length ?? 0);
+                chars += p.Name?.Length ?? 0;
+                chars += McpToolSurface.ParameterDescription(p)?.Length ?? 0;
             }
         }
 
@@ -60,7 +40,7 @@ public sealed class ToolSchemaBudgetTests
     [Fact]
     public void ToolCount_StaysBounded()
     {
-        int count = ToolMethods().Count();
+        int count = McpToolSurface.ToolMethods().Count();
         count.Should().BeLessThanOrEqualTo(24,
             $"the tool surface is a fixed per-session prefix tax and clients degrade past ~20 tools (measured {count}). "
             + "Consolidate into a composite before adding another top-level tool.");

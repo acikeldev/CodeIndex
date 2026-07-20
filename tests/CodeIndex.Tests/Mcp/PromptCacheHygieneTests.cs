@@ -1,8 +1,7 @@
-using System.ComponentModel;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using CodeIndex.Internal;
-using CodeIndex.Mcp;
+using CodeIndex.Tests.Infrastructure;
 
 namespace CodeIndex.Tests.Mcp;
 
@@ -24,48 +23,20 @@ public sealed class PromptCacheHygieneTests
         @"[A-Za-z]:\\|/home/|/Users/|/root/|/mnt/|(?<![A-Za-z])/c/",
         RegexOptions.Compiled);
 
-    private const string McpServerToolTypeName = "ModelContextProtocol.Server.McpServerToolAttribute";
-
-    private static IEnumerable<MethodInfo> ToolMethods()
-    {
-        Assembly asm = typeof(RepoMapTool).Assembly;
-        foreach (Type type in asm.GetTypes())
-        {
-            foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
-            {
-                if (method.GetCustomAttributes().Any(a => a.GetType().FullName == McpServerToolTypeName))
-                {
-                    yield return method;
-                }
-            }
-        }
-    }
-
-    private static string? ToolName(MethodInfo method)
-    {
-        Attribute? attr = method.GetCustomAttributes().FirstOrDefault(a => a.GetType().FullName == McpServerToolTypeName);
-        return attr?.GetType().GetProperty("Name")?.GetValue(attr) as string;
-    }
-
-    // A parameter becomes a JSON-schema property unless the SDK resolves it from DI. The DI params here are the
-    // registered services (IFileSystem, ICodeIndexStore, ICodeIndexCache) — all interfaces. Everything else
-    // (string/int/bool/enum + their nullables) is caller-supplied schema and must be documented.
-    private static bool IsSchemaParameter(ParameterInfo p) => !p.ParameterType.IsInterface;
-
     [Fact]
     public void EveryTool_HasAStableExplicitNameAndDescription()
     {
-        List<MethodInfo> tools = ToolMethods().ToList();
+        List<MethodInfo> tools = McpToolSurface.ToolMethods().ToList();
         tools.Should().NotBeEmpty("the assembly must expose MCP tools");
         tools.Count.Should().BeGreaterThanOrEqualTo(20, "the known tool surface is 20 tools");
 
         foreach (MethodInfo tool in tools)
         {
-            string? name = ToolName(tool);
+            string? name = McpToolSurface.ToolName(tool);
             name.Should().NotBeNullOrWhiteSpace(
                 $"{tool.DeclaringType?.Name}.{tool.Name} must set an explicit stable tool Name (a method rename must not silently change the schema)");
 
-            string? description = tool.GetCustomAttribute<DescriptionAttribute>()?.Description;
+            string? description = McpToolSurface.ToolDescription(tool);
             description.Should().NotBeNullOrWhiteSpace($"tool '{name}' must carry a [Description] — it is part of the cached tool schema");
         }
     }
@@ -73,12 +44,12 @@ public sealed class PromptCacheHygieneTests
     [Fact]
     public void EverySchemaParameter_IsDocumented()
     {
-        foreach (MethodInfo tool in ToolMethods())
+        foreach (MethodInfo tool in McpToolSurface.ToolMethods())
         {
-            string name = ToolName(tool) ?? tool.Name;
-            foreach (ParameterInfo p in tool.GetParameters().Where(IsSchemaParameter))
+            string name = McpToolSurface.ToolName(tool) ?? tool.Name;
+            foreach (ParameterInfo p in tool.GetParameters().Where(McpToolSurface.IsSchemaParameter))
             {
-                string? desc = p.GetCustomAttribute<DescriptionAttribute>()?.Description;
+                string? desc = McpToolSurface.ParameterDescription(p);
                 desc.Should().NotBeNullOrWhiteSpace(
                     $"parameter '{p.Name}' of tool '{name}' is a schema property and must be documented for reliable tool selection");
             }
@@ -88,11 +59,11 @@ public sealed class PromptCacheHygieneTests
     [Fact]
     public void NoToolSchema_ContainsMachineSpecificPaths()
     {
-        foreach (MethodInfo tool in ToolMethods())
+        foreach (MethodInfo tool in McpToolSurface.ToolMethods())
         {
-            string name = ToolName(tool) ?? tool.Name;
+            string name = McpToolSurface.ToolName(tool) ?? tool.Name;
 
-            string? toolDesc = tool.GetCustomAttribute<DescriptionAttribute>()?.Description;
+            string? toolDesc = McpToolSurface.ToolDescription(tool);
             if (toolDesc is not null)
             {
                 VolatileMarker.IsMatch(toolDesc).Should().BeFalse(
@@ -101,7 +72,7 @@ public sealed class PromptCacheHygieneTests
 
             foreach (ParameterInfo p in tool.GetParameters())
             {
-                string? desc = p.GetCustomAttribute<DescriptionAttribute>()?.Description;
+                string? desc = McpToolSurface.ParameterDescription(p);
                 if (desc is not null)
                 {
                     VolatileMarker.IsMatch(desc).Should().BeFalse(
