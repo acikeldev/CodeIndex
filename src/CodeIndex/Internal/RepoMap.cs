@@ -173,10 +173,14 @@ internal sealed class RepoMap
             return [];
         }
 
-        double[] teleport = BuildTeleport(focus, n, out bool personalized);
+        double[] teleport = BuildTeleport(focus, n, out bool personalized, out HashSet<int> focusNodes);
         // When focus is set, weaken damping so ~half the rank flows from the focus teleport each step — otherwise
-        // (at 0.85) a dense global cluster drowns out the focus neighborhood and personalization barely moves.
-        double[] rank = PageRank(teleport, personalized ? 0.5 : Damping);
+        // (at 0.85) a dense global cluster drowns out the focus neighborhood and personalization barely moves. Also
+        // boost edges that POINT AT a focus node, so a file's link to the focus counts more than its other links
+        // and the focus neighborhood tightens (personalized-PageRank edge reweighting, à la Aider). Focus-only: with
+        // no focus the original edges are used unchanged, so global importance ranking is byte-for-byte unaffected.
+        Dictionary<int, double>[] edges = personalized ? BoostEdgesTowardFocus(_outEdges, focusNodes) : _outEdges;
+        double[] rank = PageRank(teleport, personalized ? 0.5 : Damping, edges);
 
         // Distribute each file's rank across its definitions (weighted by symbol importance), then flatten + sort.
         List<RankedSymbol> ranked = new();
@@ -226,10 +230,35 @@ internal sealed class RepoMap
         return ranked;
     }
 
-    private double[] BuildTeleport(IReadOnlyList<string> focus, int n, out bool personalized)
+    // Multiplier on edges whose target is a focus node — a tuning constant; large enough to bias flow toward the
+    // focus neighbourhood, small enough not to swamp genuine structure. Only ever applied on the personalized path.
+    private const double FocusEdgeBoost = 4.0;
+
+    // Reweight a copy of the graph so any edge INTO a focus node carries more weight. Uniformly scaling ALL of a
+    // node's out-edges would cancel under PageRank's per-node normalization, so the boost is deliberately selective
+    // (target-in-focus only): it shifts each referrer's out-flow toward the focus, tightening its neighbourhood.
+    private static Dictionary<int, double>[] BoostEdgesTowardFocus(Dictionary<int, double>[] outEdges, HashSet<int> focusNodes)
+    {
+        Dictionary<int, double>[] boosted = new Dictionary<int, double>[outEdges.Length];
+        for (int i = 0; i < outEdges.Length; i++)
+        {
+            Dictionary<int, double> m = new(outEdges[i].Count);
+            foreach (KeyValuePair<int, double> e in outEdges[i])
+            {
+                m[e.Key] = focusNodes.Contains(e.Key) ? e.Value * FocusEdgeBoost : e.Value;
+            }
+
+            boosted[i] = m;
+        }
+
+        return boosted;
+    }
+
+    private double[] BuildTeleport(IReadOnlyList<string> focus, int n, out bool personalized, out HashSet<int> focusNodesOut)
     {
         double[] teleport = new double[n];
         HashSet<int> focusNodes = new();
+        focusNodesOut = focusNodes;
         if (focus is { Count: > 0 })
         {
             foreach (string raw in focus)
@@ -274,7 +303,8 @@ internal sealed class RepoMap
     }
 
     // Deterministic power iteration. Dangling nodes (no out-edges) redistribute their mass via the teleport vector.
-    private double[] PageRank(double[] teleport, double damping)
+    // <paramref name="outEdges"/> is the (possibly focus-boosted) edge set; global ranking passes the raw edges.
+    private double[] PageRank(double[] teleport, double damping, Dictionary<int, double>[] outEdges)
     {
         int n = _files.Count;
         double[] rank = new double[n];
@@ -285,7 +315,7 @@ internal sealed class RepoMap
         for (int i = 0; i < n; i++)
         {
             double s = 0;
-            foreach (double w in _outEdges[i].Values)
+            foreach (double w in outEdges[i].Values)
             {
                 s += w;
             }
@@ -319,7 +349,7 @@ internal sealed class RepoMap
                     continue;
                 }
                 double factor = damping * rank[i] / outSum[i];
-                foreach (KeyValuePair<int, double> e in _outEdges[i])
+                foreach (KeyValuePair<int, double> e in outEdges[i])
                 {
                     next[e.Key] += factor * e.Value;
                 }

@@ -208,6 +208,53 @@ public class RepoMapTests
     }
 
     [Fact]
+    public void Focus_Deterministic()
+    {
+        RenderMap(["CoreService"], 8000, null).Should().Be(RenderMap(["CoreService"], 8000, null));
+    }
+
+    [Fact]
+    public void Focus_BoostLiftsFocusedNodeAboveSymmetricPeer()
+    {
+        // Hub and Other are referenced by the SAME two files, equally — so with no focus they rank about the same.
+        // Focusing on Hub (teleport + the target-in-focus edge boost) must lift Hub above its symmetric peer.
+        InMemoryFileSystem fs = new();
+        List<SourceFileIndex> files = new();
+
+        void Add(string name, string content)
+        {
+            string path = Path.Combine(ProjDir, name);
+            fs.AddFile(path, content);
+            SourceFileIndex? parsed = new SourceFileParser(fs).Parse(path, ProjectName);
+            parsed.Should().NotBeNull();
+            files.Add(parsed!);
+        }
+
+        Add("Hub.cs", "namespace N;\npublic class Hub { }");
+        Add("Other.cs", "namespace N;\npublic class Other { }");
+        Add("P1.cs", "namespace N;\npublic class P1 { public void Use() { Hub h = new Hub(); Other o = new Other(); } }");
+        Add("P2.cs", "namespace N;\npublic class P2 { public void Use() { Hub h = new Hub(); Other o = new Other(); } }");
+
+        RepoMap map = RepoMap.Build(files, fs);
+
+        double ScoreOf(IReadOnlyList<string> focus, string sig)
+        {
+            List<RepoMap.RankedSymbol> ranked = map.Rank(focus, null);
+            return ranked.First(r => r.Signature.Contains(sig, StringComparison.Ordinal)).Score;
+        }
+
+        // Symmetric without focus.
+        double globalHub = ScoreOf([], "Hub");
+        double globalOther = ScoreOf([], "Other");
+        (globalHub / globalOther).Should().BeInRange(0.8, 1.25, "Hub and Other are referenced identically → similar global rank");
+
+        // Focused → Hub is lifted above Other.
+        double focusedHub = ScoreOf(["Hub"], "Hub");
+        double focusedOther = ScoreOf(["Hub"], "Other");
+        focusedHub.Should().BeGreaterThan(focusedOther, "focusing on Hub must rank it above its otherwise-symmetric peer");
+    }
+
+    [Fact]
     public void EmptyIndex_GracefulMessage()
     {
         InMemoryFileSystem fs = new();
