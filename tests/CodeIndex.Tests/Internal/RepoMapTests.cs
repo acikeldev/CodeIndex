@@ -109,6 +109,46 @@ public class RepoMapTests
     }
 
     [Fact]
+    public void CodeOnlyEdges_CommentAndStringMentionsDoNotRank()
+    {
+        // Beta is referenced in CODE (a field); Alpha is named only in a string literal and a comment. Only the
+        // code reference should create a graph edge, so Beta must out-rank the merely-talked-about Alpha.
+        InMemoryFileSystem fs = new();
+        List<SourceFileIndex> files = new();
+
+        void Add(string name, string content)
+        {
+            string path = Path.Combine(ProjDir, name);
+            fs.AddFile(path, content);
+            SourceFileIndex? parsed = new SourceFileParser(fs).Parse(path, ProjectName);
+            parsed.Should().NotBeNull();
+            files.Add(parsed!);
+        }
+
+        // Separate files: repo_map's graph is file→file, so the two targets must live apart to be distinguishable.
+        // The references live in method BODIES (scanned for edges) not signatures (so they don't appear in render).
+        Add("Alpha.cs", "namespace N;\npublic class Alpha { }");
+        Add("Beta.cs", "namespace N;\npublic class Beta { }");
+        Add("CodeUser.cs", "namespace N;\npublic class CodeUser { public void Use() { Beta local = new Beta(); local.ToString(); } }");
+        Add("TextUser.cs",
+            "namespace N;\npublic class TextUser\n{\n"
+            + "    public void Use()\n    {\n"
+            + "        // Alpha Alpha Alpha handles everything\n"
+            + "        string note = \"Alpha Alpha Alpha is the handler\";\n"
+            + "        note.ToString();\n    }\n}");
+
+        RepoMap map = RepoMap.Build(files, fs);
+        string rendered = RepoMap.Render(map.Rank([], null), 8000);
+
+        int betaPos = rendered.IndexOf("Beta", StringComparison.Ordinal);
+        int alphaPos = rendered.IndexOf("Alpha", StringComparison.Ordinal);
+        betaPos.Should().BeGreaterThanOrEqualTo(0);
+        alphaPos.Should().BeGreaterThanOrEqualTo(0);
+        betaPos.Should().BeLessThan(alphaPos,
+            "Beta has a real code reference; Alpha is only named in a comment and a string, so it earns no edge");
+    }
+
+    [Fact]
     public void SqrtDamping_RepetitionHelpsButSublinearly()
     {
         // Several referrer files each name TargetX once and TargetY nine times. Because both targets compete for

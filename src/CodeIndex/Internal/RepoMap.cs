@@ -11,9 +11,10 @@ namespace CodeIndex.Internal;
 ///
 /// The mention graph is the crux: CodeIndex stores DEFINITIONS only, so we derive a reference signal by scanning
 /// each (non-generated) file's text once and matching identifier tokens against the set of KNOWN defined symbol
-/// names — an edge X→Y means file X mentions a symbol defined in file Y. Matching only known names (not arbitrary
-/// identifiers) plus IDF weighting, a min-length filter and a ubiquity cutoff keeps common names (Id, Name, …) from
-/// turning the graph into noise. Built lazily on the immutable snapshot (like the project dependency graph),
+/// names — an edge X→Y means file X references (in CODE, not in a comment or string literal) a symbol defined in
+/// file Y. Matching only known names (not arbitrary identifiers), skipping comments/strings, plus IDF weighting, a
+/// min-length filter and a ubiquity cutoff keeps common names (Id, Name, …) and prose mentions from turning the
+/// graph into noise. Built lazily on the immutable snapshot (like the project dependency graph),
 /// so it costs nothing until repo_map is first called and rebuilds only when the snapshot changes.
 /// </summary>
 internal sealed class RepoMap
@@ -413,14 +414,69 @@ internal sealed class RepoMap
         _ => 0.4,
     };
 
-    // Extract identifier tokens from a line and tally those that are known defined symbol names. Manual char scan
-    // (faster than regex at this volume); an identifier is [A-Za-z_][A-Za-z0-9_]*.
+    // Extract identifier tokens from a line and tally those that are known defined symbol names — but only where
+    // they are CODE, not text. A type named in a `//` comment or inside a "string literal" is not a reference and
+    // must not create a graph edge (that was the biggest false-edge source: type names in comments and in SQL/log
+    // strings). Manual char scan (faster than regex at this volume); an identifier is [A-Za-z_][A-Za-z0-9_]*.
+    // Conservative: interpolation holes inside $"…{X}…" are treated as string (X under-counted, not over-counted),
+    // and verbatim/raw strings aren't fully modelled — acceptable for a ranking heuristic, same caveat as
+    // find_references' string/comment classifier.
     private static void CountIdentifierMentions(string line, HashSet<string> known, Dictionary<string, int> counts)
     {
         int i = 0, len = line.Length;
+        bool inString = false;
         while (i < len)
         {
             char c = line[i];
+
+            if (inString)
+            {
+                if (c == '\\')
+                {
+                    i += 2;   // skip the escaped char (\" \\ etc.)
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = false;
+                }
+
+                i++;
+                continue;
+            }
+
+            // A '//' outside a string starts a line comment — the rest of the line is not code.
+            if (c == '/' && i + 1 < len && line[i + 1] == '/')
+            {
+                return;
+            }
+
+            if (c == '"')
+            {
+                inString = true;
+                i++;
+                continue;
+            }
+
+            // Skip a char literal so a '"' inside it can't open a phantom string.
+            if (c == '\'')
+            {
+                i++;
+                while (i < len && line[i] != '\'')
+                {
+                    if (line[i] == '\\')
+                    {
+                        i++;
+                    }
+
+                    i++;
+                }
+
+                i++;   // past the closing '
+                continue;
+            }
+
             if (c == '_' || char.IsLetter(c))
             {
                 int start = i;
@@ -429,16 +485,17 @@ internal sealed class RepoMap
                 {
                     i++;
                 }
+
                 string token = line[start..i];
                 if (token.Length >= MinNameLength && known.Contains(token))
                 {
                     counts[token] = counts.GetValueOrDefault(token) + 1;
                 }
+
+                continue;
             }
-            else
-            {
-                i++;
-            }
+
+            i++;
         }
     }
 }
