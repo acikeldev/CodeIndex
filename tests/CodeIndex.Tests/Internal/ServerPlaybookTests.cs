@@ -23,4 +23,13 @@ public sealed class ServerPlaybookTests
         ServerPlaybook.Instructions.Should().Contain("prefer these tools over grep");
         ServerPlaybook.Instructions.Should().Contain("ONE call");
     }
+
+    [Fact]
+    public void Instructions_SteerAgainstOverReadAndTowardGrepForPureLiterals()
+    {
+        // Guards the two anti-loss levers: trust composite output (stop re-opening resolved nodes), and route a
+        // pure literal lookup entirely to grep (no schema-load tax).
+        ServerPlaybook.Instructions.Should().Contain("TRUST the composite");
+        ServerPlaybook.Instructions.Should().Contain("ripgrep IS the whole job");
+    }
 }

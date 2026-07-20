@@ -156,9 +156,10 @@ internal static class CallHierarchy
             .Where(f => !GeneratedFileClassifier.IsGenerated(f.SourceFilePath))
             .ToList();
 
-        // Definition locations + which files define each method name — straight from the index, no parse.
+        // Definition locations + signatures + which files define each method name — straight from the index, no parse.
         Dictionary<string, List<SourceFileIndex>> definersByName = new(StringComparer.Ordinal);
         Dictionary<string, string> defLoc = new(StringComparer.Ordinal);
+        Dictionary<string, string> defSig = new(StringComparer.Ordinal);
         foreach (SourceFileIndex f in candidates)
         {
             foreach (Models.TypeInfo t in f.Types)
@@ -178,6 +179,10 @@ internal static class CallHierarchy
 
                     list.Add(f);
                     defLoc.TryAdd(m.Name, $"{f.FileName}:{m.StartLine}");
+                    if (!string.IsNullOrEmpty(m.Signature))
+                    {
+                        defSig.TryAdd(m.Name, m.Signature);
+                    }
                 }
             }
         }
@@ -277,10 +282,25 @@ internal static class CallHierarchy
             return $"trace_calls(callers): no invocations of '{method}' found{Scope(project)}. (Name-based + C#-only.)";
         }
 
+        // Each node carries its definition site AND signature so the caller never needs a follow-up read to name or
+        // understand it — the note below tells the agent so, to stop the over-read (open-each-node) that otherwise
+        // erases the one-call saving.
+        string NodeSuffix(string name)
+        {
+            if (!defLoc.TryGetValue(name, out string? l))
+            {
+                return callees ? "  (external / not indexed)" : string.Empty;
+            }
+
+            string sig = defSig.TryGetValue(name, out string? s) && !string.IsNullOrEmpty(s) ? $"  {s}" : string.Empty;
+            return $"  [{l}]{sig}";
+        }
+
         StringBuilder sb = new();
         sb.AppendLine($"trace_calls: {(callees ? "callees" : "callers")} of {method} (depth ≤{maxDepth}, ≤{maxNodes} nodes){Scope(project)}");
+        sb.AppendLine("Each node shows its [file:line] and signature — this is authoritative; do NOT open these files to verify. Call get_symbol_source(member='Name') only for a body you must actually read.");
         sb.AppendLine();
-        sb.AppendLine($"{method}{(defLoc.TryGetValue(method, out string? rootLoc) ? $"  [{rootLoc}]" : string.Empty)}");
+        sb.AppendLine($"{method}{NodeSuffix(method)}");
 
         HashSet<string> visited = new(StringComparer.Ordinal) { method };
         int nodeCount = 0;
@@ -315,15 +335,15 @@ internal static class CallHierarchy
                     return;
                 }
 
-                string loc = defLoc.TryGetValue(child, out string? l) ? $"  [{l}]" : (callees ? "  (external / not indexed)" : string.Empty);
+                string suffix = NodeSuffix(child);
                 if (!visited.Add(child))
                 {
-                    sb.AppendLine($"{indent}{child}{loc} (↑ already traced)");
+                    sb.AppendLine($"{indent}{child}{suffix} (↑ already traced)");
                     nodeCount++;
                     continue;
                 }
 
-                sb.AppendLine($"{indent}{child}{loc}");
+                sb.AppendLine($"{indent}{child}{suffix}");
                 nodeCount++;
 
                 bool canDescend = callees ? definersByName.ContainsKey(child) : callersByName.ContainsKey(child);

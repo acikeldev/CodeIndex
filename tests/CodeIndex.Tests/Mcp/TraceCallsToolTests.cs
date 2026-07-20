@@ -57,6 +57,22 @@ public sealed class TraceCallsToolTests
     }
 
     [Fact]
+    public void InlinesNodeSignatures_AndCarriesAntiReReadNote()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+
+        string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 3);
+
+        // 1a: each node carries its signature inline, so the agent needn't open the file to name/understand it.
+        output.Should().Contain("void Beta()");
+        output.Should().Contain("void Gamma()");
+        // 1b: the output tells the agent the annotations are authoritative — don't re-open to verify.
+        output.Should().Contain("authoritative");
+        output.Should().Contain("get_symbol_source(member=");
+    }
+
+    [Fact]
     public void Depth1_StopsAtDirectChildren()
     {
         Seed();
