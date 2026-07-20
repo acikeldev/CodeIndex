@@ -47,9 +47,9 @@ it automatically).
 
 > **Eager vs. deferred tool loading (a trade-off, not a default to flip).** Since Claude Code v2.1.121, MCP tool
 > schemas are *deferred* behind `ToolSearch`: the agent pays a one-time `ToolSearch` round-trip the first time it
-> reaches for a CodeIndex tool, but a session that never navigates code carries none of the ~20 schemas. Adding
+> reaches for a CodeIndex tool, but a session that never navigates code carries none of the ~22 schemas. Adding
 > `"alwaysLoad": true` to the `codeindex` entry loads all schemas up front — it removes that first-use round-trip
-> but pays the full schema budget on *every* session, and exposing 20 tools eagerly can nudge the model to
+> but pays the full schema budget on *every* session, and exposing 22 tools eagerly can nudge the model to
 > over-call. Keep the deferred default unless you navigate code in most sessions. The client-wide alternative is
 > the `ENABLE_TOOL_SEARCH` env var — `false` disables deferral for *all* MCP servers (not just this one),
 > `auto:N` defers only once tool schemas exceed N% of the context window. `alwaysLoad` requires Claude Code
@@ -130,7 +130,7 @@ Fall back to plain grep / file reads only when the target isn't indexed
 (non-code files) or CodeIndex returns nothing.
 ```
 
-See the [tools list](../README.md#the-20-tools) in the README for the complete set.
+See the [tools list](../README.md#the-22-tools) in the README for the complete set.
 
 ## Index configuration (optional)
 
@@ -159,7 +159,7 @@ CodeIndex/
 │   ├── Caching/          MessagePack caches — C# segment + independent TS segment
 │   ├── Indexing/         Snapshot-swap store, C#+TS merge, dependency & mention graphs, file watcher
 │   ├── Internal/         Ranking, output-shaping, structural search, call hierarchy, config, path security
-│   └── Mcp/              The 20 MCP tool implementations
+│   └── Mcp/              The 22 MCP tool implementations
 ├── tests/CodeIndex.Tests/            xUnit unit tests over an in-memory file system
 └── benchmarks/CodeIndex.Benchmarks/  BenchmarkDotNet latency benchmarks + the context-cost report
 ```

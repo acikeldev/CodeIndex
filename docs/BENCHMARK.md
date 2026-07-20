@@ -144,6 +144,10 @@ model, cache-cold alternation, 2 runs/cell (n=2 — directional, not a significa
   `get_class_hierarchy transitive=true` call versus one grep *per level*; a usage facet is one `find_references`
   call versus grep-plus-manual-classification. Fewer round-trips → less re-sent context → lower cost. This is the
   part that survives even an adversarial pairing (best grep run vs worst hybrid run) at ~−35%.
+- **The composite-session cell is the noisiest — read it as directional, not precise.** On an independent re-run
+  its grep-only baseline swung widely and the same combined task set landed anywhere from roughly **−4% to −22%**,
+  because one long composite session yields few independent samples. The trustworthy figures are the per-task-type
+  rows and the multi-step mixed task; the single composite aggregate is the least reproducible number here.
 - **Worst / best / typical.** Structural-heavy sessions land near **−40%**; literal-heavy sessions near **−5%**
   (breakeven; pure-literal ties); a **balanced** mix is **~−22%** — both the midpoint of that range and the
   measured balanced-set median.

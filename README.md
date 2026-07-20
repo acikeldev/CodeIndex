@@ -5,11 +5,11 @@
 results — so your coding agent spends its context window (and your pay-as-you-go budget) on *thinking*, not on
 grepping and re-reading source.
 
-It indexes **C#** (Roslyn) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **20 tools** to
+It indexes **C#** (Roslyn) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **22 tools** to
 any MCP client (Claude Code, Cursor, Copilot, …). No cloud, no embeddings, no API keys — everything runs on your
 machine.
 
-→ **[Install & configure](docs/INSTALL.md)** · [The 20 tools](#the-20-tools) · [How it works](#how-it-works)
+→ **[Install & configure](docs/INSTALL.md)** · [The 22 tools](#the-22-tools) · [How it works](#how-it-works)
 
 ---
 
@@ -127,21 +127,23 @@ Want the end-to-end session-level proof (the `$ / tokens / wall-time` your MCP c
 the same handful of code questions in two sessions — one with the CodeIndex tools enabled, one with only
 grep/read — and compare the status line. The per-task token deltas above are what drives that difference.
 
-## The 20 tools
+## The 22 tools
 
 **One-call dossiers** (prefer these — each collapses a multi-tool chain into a single round-trip)
 
 | Tool | Languages | What it does |
 |------|-----------|--------------|
-| `explain_symbol` | C# + TS | A symbol's identity + members, inheritance, source, and references in ONE response — instead of chaining `search_symbol` → `get_type_members` → `get_symbol_source` → `find_references` |
-| `prepare_change` | C# + TS | Pre-edit briefing: definition + every call site + callers + implementors/overrides, in one call |
+| `explain_symbol` | C# + TS | A symbol's identity + members, inheritance, source, and references in ONE response — instead of chaining `search_symbol` → `get_type_members` → `get_symbol_source` → `find_references`; `verbosity=concise` drops bodies for a signatures-only view (~⅓ the tokens) |
+| `prepare_change` | C# + TS | Pre-edit briefing: definition + every call site + callers + implementors/overrides, in one call; `verbosity=concise` for the blast radius without the definition body |
+| `trace_calls` | C# | Transitive call trace in one call — follow the callee chain (downstream flow) or caller chain (upstream impact) N levels deep, instead of hand-running `call_hierarchy` per node; cycle-safe, depth + node bounded |
 
 **Orientation**
 
 | Tool | Languages | What it does |
 |------|-----------|--------------|
-| `get_onboarding` | C# + TS | One-call session orientation: projects + top PageRank symbols + where to start, cached (keyed to the index build, refreshes on change) |
+| `get_onboarding` | C# + TS | One-call session orientation: projects + top PageRank symbols + where to start, cached (keyed to the index build, refreshes on change); appends any notes left via `remember` |
 | `get_task_context` | C# + TS | Task-conditioned orientation: anchors a free-text task to real types, then PageRank focused on them + a dossier for the strongest anchor; says so and falls back to plain orientation when it can't anchor |
+| `remember` | C# + TS | Persist a short repo fact (an entry point, a gotcha) to the repo's cache; it's surfaced by `get_onboarding` in every future session and survives restart + reindex, so orientation is discovered once, not re-derived |
 | `suggest_queries` | C# + TS | Index overview (top projects, largest files, type distribution) + ready-to-run starting queries |
 | `repo_map` | C# + TS | The most important symbols, ranked by PageRank over the symbol-reference graph; pass `focus=` for task-relevant (personalized) ranking |
 | `repo_info` | C# + TS | Repo overview (projects + file counts) and index health (build kind/age, cache path + schema); `project=` lists that project's files |
@@ -184,9 +186,10 @@ grep/read — and compare the status line. The per-task token deltas above are w
 - **Token-lean by design.** Ranked results, grouping by file, per-file caps with true totals, and generated-file
   demotion keep every response small — that's the whole point (see [the numbers](#the-numbers)).
 - **One round-trip by design.** The `explain_symbol` / `prepare_change` dossiers compose a whole navigation
-  chain server-side; a playbook sent via MCP `ServerInstructions` steers agents to them; and single-match results
-  pre-fetch their likely next hop. The client re-bills the entire conversation each turn, so *fewer* tool calls —
-  not just smaller ones — is what saves tokens.
+  chain server-side, and `trace_calls` collapses a multi-level call walk into a single call; a playbook sent via
+  MCP `ServerInstructions` steers agents to them; and single-match results pre-fetch their likely next hop. The
+  client re-bills the entire conversation each turn, so *fewer* tool calls — not just smaller ones — is what saves
+  tokens.
 - **Non-blocking startup.** The server publishes a snapshot straight from the on-disk cache and answers
   immediately; a background watcher revalidates against the working tree. TS/SCSS builds *after* C# is already
   serving — zero added startup latency.
