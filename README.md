@@ -88,17 +88,18 @@ across many files. A session that is nothing but one- or two-call literal lookup
 A balanced end-to-end A/B (a mix of literal, structural, and multi-step questions; **hybrid = CodeIndex + grep**
 vs **grep-only**, same model, cache-cold alternation) brackets the range:
 
-| Session workload | Cost saving, hybrid vs grep-only |
+| Session workload | Cost, hybrid vs grep-only (n=10, 95% CI) |
 |---|---:|
-| **Best case** — structural-heavy (class hierarchy, references, usage facets) | **~−40%** |
-| **Worst case** — literal / config-hunt heavy | **~−5%** (pure-literal ties) |
-| **Typical** — balanced mix (midpoint of best & worst; also the measured balanced-set median) | **~−22%** |
+| **Best** — structural-heavy (transitive hierarchy, references, usage facets) | **−45%** [−52%, −38%] |
+| **Typical** — a realistic mixed / composite session | **−25%** [−35%, −15%] |
+| **Worst** — pure literal, or "locate an entry point then read the chain" | **hybrid _loses_: +22% to +37%** |
 
-Turn count drops ~30–40% on the same workload — *fewer round-trips*, the mechanism behind the cost win. Two
-metrics carry honesty flags: wall-clock is noisy (the server pays a fixed start-up / tool-load cost, so a *tiny*
-task can be slower), and raw token totals are inflated by cheap cache-read volume — so **cost and turn count are
-the reliable signals**. These are directional (small per-cell sample). Full numbers, caveats, and a
-run-it-yourself protocol for *your* task and model: **[docs/BENCHMARK.md](docs/BENCHMARK.md)**.
+On structural cells the turn count roughly halves — *fewer round-trips*, the mechanism behind the cost win. At
+**n=10 the direction is statistically resolved** (95% CIs exclude 0) for every cell except a genuine tie on a
+multi-step "explain the flow" task. Two metrics still carry honesty flags: wall-clock is noisy (the server pays a
+fixed start-up / tool-load cost, so a *tiny* task can be slower), and raw token totals are inflated by cheap
+cache-read volume — so **cost and turn count are the reliable signals**. Full numbers, 95% CIs, the per-tool
+transcript breakdown, and a run-it-yourself protocol: **[docs/BENCHMARK.md](docs/BENCHMARK.md)**.
 
 **When it wins, washes, or loses:**
 
@@ -106,7 +107,7 @@ run-it-yourself protocol for *your* task and model: **[docs/BENCHMARK.md](docs/B
 |---|---|
 | Large files you need a small slice of; references scattered across many files; a symbol to understand or safely change | **Win** — one dossier (`explain_symbol` / `prepare_change`) replaces a whole chain, where grep would pull entire files |
 | A focused task in a few mid-size files | **Wash** — smaller per-call payloads roughly cancel the extra round-trips |
-| A one- or two-call lookup; text / log / config hunts; a cold or stale index; tiny files; an unindexed language | **Grep wins** — a single ripgrep with no index and no orientation is hard to beat |
+| A one- or two-call lookup; text / log / config hunts; a cold or stale index; tiny files; an unindexed language; or "find an entry point then read the whole chain" (the agent over-reads after the resolved answer) | **Grep wins** — a single ripgrep with no index and no orientation is hard to beat |
 
 The one-call dossiers, the usage playbook injected via MCP `ServerInstructions`, and the speculative next-hop
 appendix all exist to shrink the round-trip count that makes the wash a wash.

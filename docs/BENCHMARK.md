@@ -152,14 +152,56 @@ model, cache-cold alternation, 2 runs/cell (n=2 — directional, not a significa
   (breakeven; pure-literal ties); a **balanced** mix is **~−22%** — both the midpoint of that range and the
   measured balanced-set median.
 
-Caveats stack up and matter: n=2/cell (directional); wall-clock is the noisiest metric and can go *negative* on
-tiny tasks because of the server's fixed start-up cost; raw token totals are dominated by cheap prompt-cache reads
-whose volume swings with cache warmth — so **cost and turn count are the trustworthy signals**, not total-token
-deltas. Re-run the §2 protocol on *your* task mix to get the number that applies to you.
+Caveats: n=2/cell here (directional) — **superseded by §5's n=10 run below**; wall-clock is the noisiest metric and
+can go *negative* on tiny tasks because of the server's fixed start-up cost; raw token totals are dominated by cheap
+prompt-cache reads — so **cost and turn count are the trustworthy signals**, not total-token deltas.
+
+## 5. High-n trackable re-run (n=10, 95% CIs, per-tool transcripts)
+
+The v3 / §4 runs were n=2 and could not say *why* a cell behaved as it did. This run fixes both: the server is the
+current release, **n=10 per cell**, six cells (the five above plus a transitive call-trace task that exercises
+`trace_calls`), captured with `--output-format stream-json` so every run records its full tool-call sequence.
+120/120 runs, 0 errors. CI = bootstrap 95% on the median-cost delta; "resolved" = the CI excludes 0.
+
+| Cell | A$ (hybrid) | B$ (grep) | Δ cost | 95% CI | A/B turns | verdict |
+|---|---:|---:|---:|---:|---:|---|
+| Transitive hierarchy | 0.224 | 0.406 | **−45%** | [−52%, −38%] | 3 / 8.5 | hybrid win (resolved) |
+| Composite session | 0.795 | 1.060 | **−25%** | [−35%, −15%] | 23.5 / 31.5 | hybrid win (resolved) |
+| Prod/test facet | 0.214 | 0.270 | **−21%** | [−40%, −5%] | 3 / 4 | hybrid win (resolved) |
+| Multi-step (SMS flow) | 0.707 | 0.642 | +10% | [−9%, +28%] | 28.5 / 17.5 | **tie** (CI spans 0) |
+| Literal / config | 0.349 | 0.287 | +22% | [+1%, +60%] | 9 / 7.5 | grep win (resolved) |
+| Transitive call-trace | 0.659 | 0.481 | +37% | [+13%, +55%] | 21.5 / 10 | grep win (resolved) |
+
+Equal-weight atomic basket (the four single-question cells): cost **−7%**, turns **+16%**.
+
+**What n=10 settles that n=2 couldn't:**
+
+- **The structural wins are real and reproducible.** The hierarchy and facet cells are razor-tight — hybrid cost
+  lands in 0.20–0.23 across all ten runs — so the win is mechanistic, not a lucky draw.
+- **The composite flips from v3's "wash" to a resolved −25% win.** v3's ambiguity was small-sample noise, as suspected.
+- **The honest worst case is a _loss_, not a tie.** Pure-literal (+22%) and locate-then-read-heavy call-trace (+37%)
+  are resolved losses (CIs exclude 0). The earlier "worst ~−5% tie" framing was too kind.
+
+**Why — from the transcripts (what the tool counts + call order reveal):**
+
+- **The winning pattern is two calls.** Hierarchy / facet sessions are `load-schema → one resolved tool → stop`: one
+  `get_class_hierarchy transitive` or one `find_references` answers the whole question, where grep needs a search per
+  level or per classification.
+- **The losing cells over-read.** SMS / composite / call-trace rack up `get_symbol_source` (90 / 64 / 74 calls across
+  ten runs) plus `search_symbol`. In the call-trace transcripts the agent invokes `trace_calls` **once, correctly**,
+  then re-derives each node by hand (`… → trace_calls → explain_symbol → search_symbol → get_symbol_source×4 →
+  Read×3`) instead of trusting the tree's `[File.cs:line]` annotations. A **steering / over-read** issue, not a defect.
+- **A `ToolSearch` schema-load tax hits every hybrid session** (1–2 turns up front to load the deferred MCP schemas).
+  On the 2-call structural cells that is *half* the session; on a short literal task it is enough to tip hybrid to a
+  loss — grep pays nothing to "load ripgrep."
+
+So the next lever is not more tools but **steering the agent to trust composite output** (stop re-opening what a
+dossier / trace already resolved), and keeping the deferred-schema cost off short sessions.
 
 ---
 
-**Bottom line.** The context-cost benchmark proves CodeIndex makes each navigation *operation* dramatically
-cheaper (~90%). The session A/B tells you what that's worth on a real *task*: a concentrated, few-file task can be
-a wash (§3), while a balanced mix of real questions runs **~22% cheaper with ~30–40% fewer round-trips** (§4), and
-structural-heavy work more. Always less than the per-operation figure — report both, never conflate them.
+**Bottom line.** The context-cost benchmark proves CodeIndex makes each navigation *operation* dramatically cheaper
+(~90%). The session A/B (n=10, §5) says what that's worth on a real *task*: **structural work is a resolved −21% to
+−45% win, a realistic composite session −25%**, a multi-step "explain the flow" task a **tie**, and **pure-literal or
+locate-then-read-heavy tasks a resolved loss (+22% to +37%)** — the last driven by the agent over-reading past a
+resolved answer, not by the index. Always less than the per-operation figure — report both, never conflate them.
