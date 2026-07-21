@@ -62,12 +62,12 @@ public sealed class TraceCallsToolTests
         Seed();
         CodeIndexStore store = Build();
 
-        string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 3);
+        string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 3, includeBodies: true);
 
         // 1a: each node carries its signature inline (in the tree).
         output.Should().Contain("void Beta()");
-        // BET#1: the FULL body of every traced node is inlined in the SAME response, with a do-not-open note —
-        // there is nothing left to fetch.
+        // includeBodies=true inlines the FULL body of every traced node in the SAME response, with a do-not-open
+        // note. (Measured caveat: this does NOT stop the Claude Code agent over-reading — kept as an opt-in.)
         output.Should().Contain("## Bodies");
         output.Should().Contain("### Beta");
         output.Should().Contain("### Gamma");

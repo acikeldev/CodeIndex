@@ -209,10 +209,23 @@ once, and **over-read anyway**. `get_symbol_source` counts barely moved (call-tr
 too: the `ToolSearch` schema-load cost is **not** hybrid-only (the grep arm pays it for built-in deferred tools, so
 it is not the literal-loss driver), and soft prose does not stop the model verifying by reading.
 
-**So the real lever is structural, not steering:** a one-call composite that **inlines the bodies** the agent would
-otherwise re-read (e.g. `trace_calls` with a bounded source-per-node mode), so there is nothing left to fetch — plus
-accepting that pure-literal is grep's turf and routing CodeIndex out of those sessions client-side. Not yet built;
-this is the honest next step, and until it exists the worst-case cells stay a loss.
+**We then built and probed the structural fix — and it ALSO failed.** A deep-research pass (SWE-agent NeurIPS'24,
+AGENTS.md ETH'26) pointed at a one-call composite that **inlines the bodies** the agent would otherwise re-read, so
+there is nothing left to fetch. We implemented it (`trace_calls includeBodies`: the full source of every traced node
+inlined in the same response, plus a "do NOT open" note) and ran a cheap n=3 probe on the call-trace task before
+spending on a full A/B. Result: **the agent over-read anyway.** In the two probe runs that called `trace_calls`, it
+then issued **8 and 14 `get_symbol_source` calls after** receiving the inlined bodies; a third run bypassed
+`trace_calls` entirely and used `search_symbol`+`Read`. Cost did not improve (it slightly worsened, from the larger
+payload the agent re-read regardless). This answers the sharpest open question: **an inlined/structured body does NOT
+read as "terminal/authoritative" to this agent — it verify-reads no matter what the response contains.**
+
+**Honest conclusion.** Two independent attempts — soft steering (v6) and structural body-inlining (probe) — both
+failed to stop the over-read on the read-heavy cells. The behavior is not information-driven (the data was already in
+context) and is not reachable by anything the server puts in a tool result. So there is **no server-side fix** for
+the call-trace / explain-flow loss; the only untested lever is client-side — not exposing the index (routing to grep)
+for those task types so the agent physically cannot loop on it. `includeBodies` is kept as an opt-in (default off,
+since default-on only added tokens). The worst-case cells remain a loss; the wins (structural, −21..−45%) are the
+honest, durable value.
 
 ---
 
