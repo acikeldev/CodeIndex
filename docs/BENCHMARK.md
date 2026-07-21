@@ -195,8 +195,24 @@ Equal-weight atomic basket (the four single-question cells): cost **−7%**, tur
   On the 2-call structural cells that is *half* the session; on a short literal task it is enough to tip hybrid to a
   loss — grep pays nothing to "load ripgrep."
 
-So the next lever is not more tools but **steering the agent to trust composite output** (stop re-opening what a
-dossier / trace already resolved), and keeping the deferred-schema cost off short sessions.
+### Can steering close the losses? A second n=10 run (v6) says no.
+
+The obvious hypothesis was: *steer the agent to trust composite output and it will stop over-reading.* We tested it.
+A follow-up n=10 run used a server with (a) `trace_calls` inlining each node's **signature** next to its file:line
+plus an explicit "this is authoritative — do NOT open these to verify" note, and (b) playbook steering to trust
+composite output, route a pure-literal lookup entirely to grep, and prefer `trace_calls` over hand-reconstruction.
+
+**It did not move the losing cells.** Literal +22% → **+31%**, call-trace +37% → **+39%** (both still resolved
+losses); the structural wins held (transitive −37%, facet −9%, composite −21%). The transcripts show why:
+`… → trace_calls → search_symbol → get_symbol_source ×6 → Read ×3` — the agent read the note, called `trace_calls`
+once, and **over-read anyway**. `get_symbol_source` counts barely moved (call-trace 74→72). Two corrections fell out
+too: the `ToolSearch` schema-load cost is **not** hybrid-only (the grep arm pays it for built-in deferred tools, so
+it is not the literal-loss driver), and soft prose does not stop the model verifying by reading.
+
+**So the real lever is structural, not steering:** a one-call composite that **inlines the bodies** the agent would
+otherwise re-read (e.g. `trace_calls` with a bounded source-per-node mode), so there is nothing left to fetch — plus
+accepting that pure-literal is grep's turf and routing CodeIndex out of those sessions client-side. Not yet built;
+this is the honest next step, and until it exists the worst-case cells stay a loss.
 
 ---
 
