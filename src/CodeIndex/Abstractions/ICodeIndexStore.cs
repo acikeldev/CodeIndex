@@ -37,7 +37,7 @@ public interface ICodeIndexStore
     string SearchStructural(string pattern, string? project, int max, int perFileCap);
     string CheckDanglingReferences(string fileQuery);
     string GetCallHierarchy(string method, string direction, string? project, int max, int perFileCap, string language);
-    string GetCallTrace(string method, string direction, string? project, int maxDepth, int maxNodes);
+    string GetCallTrace(string method, string direction, string? project, int maxDepth, int maxNodes, bool includeBodies);
     ProjectDependencyInfo? GetProjectDependencyInfo(string name);
     IReadOnlyDictionary<string, string> ProjectDirsByName();
     IEnumerable<string> FileNames();

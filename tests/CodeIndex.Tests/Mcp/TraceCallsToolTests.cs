@@ -64,12 +64,26 @@ public sealed class TraceCallsToolTests
 
         string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 3);
 
-        // 1a: each node carries its signature inline, so the agent needn't open the file to name/understand it.
+        // 1a: each node carries its signature inline (in the tree).
         output.Should().Contain("void Beta()");
-        output.Should().Contain("void Gamma()");
-        // 1b: the output tells the agent the annotations are authoritative — don't re-open to verify.
-        output.Should().Contain("authoritative");
-        output.Should().Contain("get_symbol_source(member=");
+        // BET#1: the FULL body of every traced node is inlined in the SAME response, with a do-not-open note —
+        // there is nothing left to fetch.
+        output.Should().Contain("## Bodies");
+        output.Should().Contain("### Beta");
+        output.Should().Contain("### Gamma");
+        output.Should().Contain("do NOT open");
+    }
+
+    [Fact]
+    public void IncludeBodiesFalse_ReturnsLeanTreeOnly()
+    {
+        Seed();
+        CodeIndexStore store = Build();
+
+        string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 3, includeBodies: false);
+
+        output.Should().Contain("Beta");           // tree still present
+        output.Should().NotContain("## Bodies");   // but no inlined bodies
     }
 
     [Fact]
@@ -78,7 +92,9 @@ public sealed class TraceCallsToolTests
         Seed();
         CodeIndexStore store = Build();
 
-        string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 1);
+        // includeBodies:false so a callee's inlined body (which legitimately calls the grandchild) can't leak the
+        // grandchild name — we are testing tree DEPTH, not the bodies section.
+        string output = TraceCallsTool.TraceCalls(store, "Alpha", direction: "callees", depth: 1, includeBodies: false);
 
         output.Should().Contain("Beta");        // direct callee
         output.Should().NotContain("Gamma");    // transitive — beyond depth 1

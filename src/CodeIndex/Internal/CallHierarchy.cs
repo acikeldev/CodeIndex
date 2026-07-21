@@ -141,7 +141,7 @@ internal static class CallHierarchy
     /// 'callers' inverts the graph with one parse pass over the (project-scoped) files, so scope it on large repos.
     /// Cycles and repeats are printed once as "(↑ already traced)"; the walk is bounded by depth and maxNodes.
     /// </summary>
-    public static string Trace(IFileSystem fileSystem, IReadOnlyList<SourceFileIndex> files, string method, string direction, string? project, int maxDepth, int maxNodes)
+    public static string Trace(IFileSystem fileSystem, IReadOnlyList<SourceFileIndex> files, string method, string direction, string? project, int maxDepth, int maxNodes, bool includeBodies = true)
     {
         if (string.IsNullOrWhiteSpace(method))
         {
@@ -156,10 +156,11 @@ internal static class CallHierarchy
             .Where(f => !GeneratedFileClassifier.IsGenerated(f.SourceFilePath))
             .ToList();
 
-        // Definition locations + signatures + which files define each method name — straight from the index, no parse.
+        // Definition locations + signatures + source spans + which files define each method name — from the index.
         Dictionary<string, List<SourceFileIndex>> definersByName = new(StringComparer.Ordinal);
         Dictionary<string, string> defLoc = new(StringComparer.Ordinal);
         Dictionary<string, string> defSig = new(StringComparer.Ordinal);
+        Dictionary<string, (string Path, int Start, int Count)> defBody = new(StringComparer.Ordinal);
         foreach (SourceFileIndex f in candidates)
         {
             foreach (Models.TypeInfo t in f.Types)
@@ -182,6 +183,11 @@ internal static class CallHierarchy
                     if (!string.IsNullOrEmpty(m.Signature))
                     {
                         defSig.TryAdd(m.Name, m.Signature);
+                    }
+
+                    if (!defBody.ContainsKey(m.Name))
+                    {
+                        defBody[m.Name] = (f.SourceFilePath, m.StartLine, m.LineCount);
                     }
                 }
             }
@@ -298,11 +304,19 @@ internal static class CallHierarchy
 
         StringBuilder sb = new();
         sb.AppendLine($"trace_calls: {(callees ? "callees" : "callers")} of {method} (depth ≤{maxDepth}, ≤{maxNodes} nodes){Scope(project)}");
-        sb.AppendLine("Each node shows its [file:line] and signature — this is authoritative; do NOT open these files to verify. Call get_symbol_source(member='Name') only for a body you must actually read.");
+        sb.AppendLine(includeBodies
+            ? "Each node shows [file:line] + signature; the FULL BODY of every traced method is inlined under '## Bodies' below. You already have the source — do NOT open these files with get_symbol_source / Read."
+            : "Each node shows its [file:line] and signature — this is authoritative; do NOT open these files to verify. Call get_symbol_source(member='Name') only for a body you must actually read.");
         sb.AppendLine();
         sb.AppendLine($"{method}{NodeSuffix(method)}");
 
         HashSet<string> visited = new(StringComparer.Ordinal) { method };
+        List<string> emittedDefined = new();
+        if (defBody.ContainsKey(method))
+        {
+            emittedDefined.Add(method);
+        }
+
         int nodeCount = 0;
         bool truncated = false;
 
@@ -345,6 +359,10 @@ internal static class CallHierarchy
 
                 sb.AppendLine($"{indent}{child}{suffix}");
                 nodeCount++;
+                if (defBody.ContainsKey(child))
+                {
+                    emittedDefined.Add(child);
+                }
 
                 bool canDescend = callees ? definersByName.ContainsKey(child) : callersByName.ContainsKey(child);
                 if (canDescend)
@@ -359,6 +377,62 @@ internal static class CallHierarchy
         if (truncated)
         {
             sb.AppendLine($"\n… trace truncated at {nodeCount} nodes (lower depth, scope with project=, or raise maxNodes).");
+        }
+
+        // Bodies: inline the FULL source of every traced (defined) node in this SAME response, so there is nothing
+        // left to open — the structural fix for the over-read that steering could not stop. Bounded: per-node line
+        // cap + an overall response-token budget; when the budget is hit the remaining nodes stay as [file:line]
+        // pointers in the tree above. Deduped (each node inlined once, in first-seen order).
+        if (includeBodies && emittedDefined.Count > 0)
+        {
+            const int PerNodeMax = 40;
+            int budget = Output.MaxResponseTokens - 1500;
+            sb.AppendLine();
+            sb.AppendLine("## Bodies (full source of every traced node — inlined here; do NOT open these files)");
+            int inlined = 0;
+            foreach (string name in emittedDefined)
+            {
+                if (Output.EstimateTokens(sb.ToString()) > budget)
+                {
+                    break;
+                }
+
+                (string path, int start, int count) = defBody[name];
+                FileReader.ReadResult read = reader.ReadFileLines(path);
+                if (!read.Success)
+                {
+                    continue;
+                }
+
+                string[] lines = read.Lines!;
+                int s = Math.Max(0, start - 1);
+                if (s >= lines.Length)
+                {
+                    continue;
+                }
+
+                int want = count > 0 ? count : PerNodeMax;
+                int shown = Math.Min(Math.Min(want, PerNodeMax), lines.Length - s);
+                sb.AppendLine();
+                sb.AppendLine($"### {name}{(defSig.TryGetValue(name, out string? bsig) ? "  " + bsig : string.Empty)}  [{defLoc.GetValueOrDefault(name, string.Empty)}]");
+                for (int i = s; i < s + shown; i++)
+                {
+                    sb.AppendLine($"{i + 1,6}| {lines[i]}");
+                }
+
+                if (want > PerNodeMax)
+                {
+                    sb.AppendLine($"       … {want - PerNodeMax} more line(s) — get_symbol_source(member='{name}') only if you truly need the rest.");
+                }
+
+                inlined++;
+            }
+
+            if (inlined < emittedDefined.Count)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"_(inlined {inlined} of {emittedDefined.Count} node bodies; the rest are above as [file:line] — response budget reached.)_");
+            }
         }
 
         return sb.ToString();
