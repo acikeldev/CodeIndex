@@ -71,7 +71,7 @@ public static class ExplainSymbolTool
         {
             ("Source", DossierBuilder.RenderSource(index, fileSystem, best.SourceFilePath, best.File, best.StartLine, best.LineCount, concise)),
             ("References", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project)),
-            ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
+            ("Callers", CallHierarchyTool.CallHierarchy(index, DossierBuilder.CallTarget(best), "callers", "both", project)),
         };
         return DossierBuilder.Assemble($"# explain_symbol: {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, index.ProjectDirsByName())}:{best.StartLine}+{best.LineCount}] ({best.Project}){note}{tag}", sections);
     }

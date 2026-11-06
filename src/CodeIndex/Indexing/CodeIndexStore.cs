@@ -940,7 +940,7 @@ internal sealed class CodeIndexStore : ICodeIndexStore
         return sb.ToString();
     }
 
-    /// <summary>call_hierarchy: heuristic C# caller/callee lookup over Roslyn syntax trees (name-based, no semantic
+    /// <summary>call_hierarchy: heuristic C# caller/callee lookup over Roslyn syntax trees (receiver-type bound, no semantic
     /// model). direction = callers | callees | both. Parses on demand — callers scans all C# files (scope with
     /// <paramref name="project"/>); callees parses only the method's declaring file(s).</summary>
     public string GetCallHierarchy(string method, string direction, string? project, int max, int perFileCap, string language = "both")
@@ -954,11 +954,13 @@ internal sealed class CodeIndexStore : ICodeIndexStore
             "both" => CallHierarchy.Callers(_fileSystem, files, method, project, max, perFileCap) + "\n\n" + CallHierarchy.Callees(_fileSystem, files, method, project, max),
             _ => CallHierarchy.Callers(_fileSystem, files, method, project, max, perFileCap),
         };
+        // TS matching is name-based: a C# "Type.Method" scope means nothing there, so pass the bare name.
+        string tsMethod = CallHierarchy.Split(method).Method;
         string Ts() => dir switch
         {
-            "callees" => TsCallHierarchy.Callees(_fileSystem, files, method, project, max),
-            "both" => TsCallHierarchy.Callers(_fileSystem, files, method, project, max, perFileCap) + "\n\n" + TsCallHierarchy.Callees(_fileSystem, files, method, project, max),
-            _ => TsCallHierarchy.Callers(_fileSystem, files, method, project, max, perFileCap),
+            "callees" => TsCallHierarchy.Callees(_fileSystem, files, tsMethod, project, max),
+            "both" => TsCallHierarchy.Callers(_fileSystem, files, tsMethod, project, max, perFileCap) + "\n\n" + TsCallHierarchy.Callees(_fileSystem, files, tsMethod, project, max),
+            _ => TsCallHierarchy.Callers(_fileSystem, files, tsMethod, project, max, perFileCap),
         };
 
         return (language ?? "both").Trim().ToLowerInvariant() switch

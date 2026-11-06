@@ -14,6 +14,13 @@ namespace CodeIndex.Mcp;
 /// </summary>
 internal static class DossierBuilder
 {
+    /// <summary>The name a dossier's Callers section asks for: "Type.Method" for a C# method (so same-named
+    /// methods on other types are not reported as its callers), the bare name otherwise.</summary>
+    public static string CallTarget(Models.SymbolSearchResult symbol) =>
+        symbol.Kind == nameof(Models.SymbolKind.Method) && !string.IsNullOrEmpty(symbol.ParentType)
+            ? $"{symbol.ParentType}.{symbol.Name}"
+            : symbol.Name;
+
     // Cap inline source so one large type/method can't dominate the dossier; the remainder is one call away.
     private const int MaxSourceLines = 160;
 

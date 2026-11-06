@@ -8,10 +8,10 @@ namespace CodeIndex.Mcp;
 public static class CallHierarchyTool
 {
     [McpServerTool(Name = "call_hierarchy")]
-    [Description("Who calls a method ('callers') or what it invokes ('callees'). Callers are grouped by file and labelled with the ENCLOSING member — sharper than find_references, which also hits declarations/comments/strings. Name-based, no overload/receiver resolution. Covers C# + TS/TSX; parses on demand, so scope 'callers' with project= on large repos (callees is cheap).")]
+    [Description("Who calls a method ('callers') or what it invokes ('callees'). Callers are grouped by file and labelled with the ENCLOSING member — sharper than find_references, which also hits declarations/comments/strings. C#: each call bound to its declaring type via the receiver's declared type (pass Type.Method to scope); unresolvable receivers marked '?', framework calls dropped. TS is name-based. Covers C# + TS/TSX; parses on demand, so scope 'callers' with project= on large repos (callees is cheap).")]
     public static string CallHierarchy(
         ICodeIndexStore index,
-        [Description("Method name")] string method,
+        [Description("Method name, or Type.Method to scope a C# method to one type")] string method,
         [Description("'callers' (default), 'callees', or 'both'")] string direction = "callers",
         [Description("'both' (default, C#+TS), 'csharp', or 'typescript'")] string language = "both",
         [Description("Optional project filter; strongly recommended for 'callers' on large repos")] string? project = null,

@@ -63,7 +63,7 @@ public static class PrepareChangeTool
         {
             ("Definition", DossierBuilder.RenderSource(index, fileSystem, best.SourceFilePath, best.File, best.StartLine, best.LineCount, concise)),
             ("Call sites", FindReferencesTool.FindReferences(index, fileSystem, best.Name, project, max: RefMax, perFileMax: RefPerFile)),
-            ("Callers", CallHierarchyTool.CallHierarchy(index, best.Name, "callers", "both", project)),
+            ("Callers", CallHierarchyTool.CallHierarchy(index, DossierBuilder.CallTarget(best), "callers", "both", project)),
         };
         return DossierBuilder.Assemble($"# prepare_change: {best.Signature ?? best.Name} [{GroupedMatchOutput.RelPath(best.SourceFilePath, best.Project, index.ProjectDirsByName())}:{best.StartLine}+{best.LineCount}] ({best.Project}){tag}", memberSections);
     }
