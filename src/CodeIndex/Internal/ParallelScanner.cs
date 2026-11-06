@@ -65,7 +65,12 @@ internal sealed class ParallelScanner
                 count++;
                 // Tallied over ALL matched lines (not just the sampled ones) so the facet stays accurate under
                 // per-file/max truncation of the body.
-                if (nonCodeLineClassifier is not null && nonCodeLineClassifier(lines[i]))
+                // XAML attribute values are markup, not string literals (`Click="Save_Click"` is a real reference);
+                // there only a `<!-- … -->` comment line counts as non-code.
+                bool nonCodeLine = file.Language == Models.Language.Xaml
+                    ? lines[i].TrimStart().StartsWith("<!--", StringComparison.Ordinal)
+                    : nonCodeLineClassifier?.Invoke(lines[i]) == true;
+                if (nonCodeLineClassifier is not null && nonCodeLine)
                 {
                     nonCode++;
                 }

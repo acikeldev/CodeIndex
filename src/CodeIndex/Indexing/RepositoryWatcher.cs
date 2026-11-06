@@ -53,7 +53,7 @@ internal sealed class RepositoryWatcher : BackgroundService
 
         Console.Error.WriteLine(headWatcher is null
             ? $"[CodeIndex] Live watch on: no .git directory at {_repoRoot} — watching source files only."
-            : $"[CodeIndex] Live watch on: .git/HEAD (branch switch) + *.cs/*.csproj/*.sln/*.slnx{(_indexTypeScript ? " + *.ts/*.tsx/*.scss/tsconfig/package.json" : string.Empty)} (-> debounced delta rebuild).");
+            : $"[CodeIndex] Live watch on: .git/HEAD (branch switch) + *.cs/*.xaml/*.csproj/*.sln/*.slnx{(_indexTypeScript ? " + *.ts/*.tsx/*.scss/tsconfig/package.json" : string.Empty)} (-> debounced delta rebuild).");
 
         try
         {
@@ -299,6 +299,7 @@ internal sealed class RepositoryWatcher : BackgroundService
 
     private static bool IsTrackedExtension(string ext) =>
         ext.Equals(".cs", StringComparison.OrdinalIgnoreCase) ||
+        ext.Equals(".xaml", StringComparison.OrdinalIgnoreCase) ||
         ext.Equals(".csproj", StringComparison.OrdinalIgnoreCase) ||
         ext.Equals(".sln", StringComparison.OrdinalIgnoreCase) ||
         ext.Equals(".slnx", StringComparison.OrdinalIgnoreCase);

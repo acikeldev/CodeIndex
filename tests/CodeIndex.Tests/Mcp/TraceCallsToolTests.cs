@@ -69,8 +69,8 @@ public sealed class TraceCallsToolTests
         // includeBodies=true inlines the FULL body of every traced node in the SAME response, with a do-not-open
         // note. (Measured caveat: this does NOT stop the Claude Code agent over-reading — kept as an opt-in.)
         output.Should().Contain("## Bodies");
-        output.Should().Contain("### Beta");
-        output.Should().Contain("### Gamma");
+        output.Should().Contain("### Flow.Beta");
+        output.Should().Contain("### Flow.Gamma");
         output.Should().Contain("do NOT open");
     }
 

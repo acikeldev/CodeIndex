@@ -30,4 +30,7 @@ public sealed class SourceFileIndex
     // SITE-based framework roots originating in this file (e.g. `new ServiceHost(typeof(X))` marking X a root).
     // Declaration-local roots live as bitflags on TypeInfo/MemberInfo instead. Null when the file has none.
     [Key(9)] public List<FrameworkRootMark>? FrameworkRoots { get; init; }
+
+    // XAML only: identifier-valued attributes (event wirings and similar) — see XamlHook. Null for C#/TS files.
+    [Key(10)] public List<XamlHook>? XamlHooks { get; init; }
 }

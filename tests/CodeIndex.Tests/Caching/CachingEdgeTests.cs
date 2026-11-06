@@ -81,7 +81,7 @@ public sealed class CachingEdgeTests
     {
         ICodeIndexCache cache = new IndexCache(new InMemoryFileSystem());
 
-        cache.CurrentSchemaVersion.Should().Be(5);
-        cache.GetCachePath(@"C:\cache").Should().EndWith("index.v5.cache");
+        cache.CurrentSchemaVersion.Should().Be(6);
+        cache.GetCachePath(@"C:\cache").Should().EndWith("index.v6.cache");
     }
 }

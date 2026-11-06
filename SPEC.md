@@ -11,7 +11,7 @@ AI coding assistants need to navigate large codebases, but the naive options are
 ## Solution
 
 CodeIndex is a **Roslyn + tree-sitter** MCP server. It parses the repository once, holds an **immutable in-memory
-index**, and serves **22 token-lean tools** over stdio/JSON-RPC. It indexes **C#** and **TypeScript / TSX / SCSS**,
+index**, and serves **22 token-lean tools** over stdio/JSON-RPC. It indexes **C#** (+ XAML) and **TypeScript / TSX / SCSS**,
 runs **fully locally** (no cloud, no embeddings, no network), and ships as a .NET global tool that a repo
 `.mcp.json` starts automatically.
 
@@ -59,6 +59,9 @@ AI agent  ←── stdio / JSON-RPC ──→  CodeIndex server (.NET 10)
 ```
 C#:   .sln/.slnx → referenced .csproj → .cs files → Roslyn SyntaxTree
         → namespaces, types, members (all visibilities), signatures, line ranges, inheritance, usings
+XAML: .xaml files under the same .csproj → System.Xml.Linq
+        → x:Class partial (base = root element) with x:Name fields typed by element; identifier-valued
+          attributes as hooks (event wirings: a handler's caller is the markup)
 TS:   tsconfig.json / package.json boundaries → .ts/.tsx/.scss → tree-sitter
         → classes/interfaces/enums/functions/consts + members; SCSS selectors, mixins, $vars, %placeholders
         → merged into the in-memory index → MessagePack binary caches on disk
@@ -89,9 +92,11 @@ Syntax-only: no assembly resolution, no NuGet restore, no `Compilation` object. 
 
 ## Limitations
 
-- **Syntax-only, name-based resolution.** `find_references` and `call_hierarchy` match by name (word-boundary),
-  with no overload/receiver-type resolution; there is no compiler-accurate go-to-definition. This is a deliberate
-  trade for fast, local, restore-free startup.
+- **Syntax-only resolution.** `find_references` matches by name (word-boundary), with no overload/receiver-type
+  resolution. `call_hierarchy` / `trace_calls` (C#) bind each call to its declaring type from the receiver's declared
+  type (local, parameter, field, property, `new`, cast, `M<T>()` returning `T`, base types); a receiver it cannot type
+  (a `var` from a complex expression, an implicitly-typed lambda parameter, a member declared only in other generated code) is reported unresolved (`?`) and never followed. Overloads are not distinguished, and there is no compiler-accurate
+  go-to-definition. This is a deliberate trade for fast, local, restore-free startup.
 - **Language coverage is not uniform.** `get_class_hierarchy`, `resolve_bare_name`, and `get_project_dependencies`
   are C#-only; `search_structural` and `call_hierarchy` have separate C# and TS engines; `check_dangling_references`
   is TS-only. SCSS is indexed for symbol/text search only.

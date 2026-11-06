@@ -136,6 +136,7 @@ public sealed partial class SolutionScanner
                     switch (Path.GetExtension(entry.Name).ToLowerInvariant())
                     {
                         case ".cs":
+                        case ".xaml": // parsed by XamlParser (x:Class partial + event wirings), same delta/cache path
                             c.CsFiles.Add((entry.FullPath, entry.LastWriteTimeUtcTicks));
                             break;
                         case ".csproj":

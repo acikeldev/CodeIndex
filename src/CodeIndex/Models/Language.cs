@@ -12,4 +12,7 @@ public enum Language : byte
     CSharp = 0,
     TypeScript = 1,
     Scss = 2,
+
+    /// <summary>WPF / WinUI / MAUI XAML: the x:Class partial (x:Name fields) + event wirings (XamlHook).</summary>
+    Xaml = 3,
 }
