@@ -8,7 +8,7 @@ namespace CodeIndex.Mcp;
 public static class StructuralSearchTool
 {
     [McpServerTool(Name = "search_structural")]
-    [Description("Find code by AST SHAPE — what text/regex can't reliably match. Pass a curated pattern name; empty/unknown lists the vocabulary. C#: empty-catch, catch-all, async-void, blocking-async, public-field, throw-in-finally, not-implemented. TS/TSX (incl. repo house rules): inline-style, classname-interp, ts-ignore, default-export, console-log, any-type. The pattern name selects the language+engine. Parses on demand — scope with project= on large repos.")]
+    [Description("Find code by AST SHAPE — what text/regex can't reliably match. Pass a curated pattern name; empty/unknown lists the vocabulary. C#: empty-catch, catch-all, async-void, blocking-async, public-field, throw-in-finally, not-implemented. TS/TSX (incl. repo house rules): inline-style, classname-interp, ts-ignore, default-export, console-log, any-type. Resources: unused-resx, unused-xaml-key (keys referenced nowhere in C#/XAML). The pattern name selects the language+engine. Parses on demand — scope with project= on large repos.")]
     public static string SearchStructural(
         ICodeIndexStore index,
         [Description("Pattern name (e.g. 'empty-catch'); empty/unknown lists the vocabulary")] string pattern = "",

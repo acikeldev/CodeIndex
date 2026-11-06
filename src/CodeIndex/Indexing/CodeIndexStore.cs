@@ -841,7 +841,12 @@ internal sealed class CodeIndexStore : ICodeIndexStore
             return TsStructuralSearch.Search(_fileSystem, files, pattern, project, max, perFileCap);
         }
 
-        return $"Unknown structural pattern '{pattern}'.\n\nC# patterns:\n{StructuralSearch.PatternHelp()}\n\nTypeScript/TSX patterns:\n{TsStructuralSearch.PatternHelp()}";
+        if (UnusedResources.HasPattern(pattern ?? string.Empty))
+        {
+            return UnusedResources.Search(_fileSystem, files, ProjectDirsByName(), pattern!, project, max, perFileCap);
+        }
+
+        return $"Unknown structural pattern '{pattern}'.\n\nC# patterns:\n{StructuralSearch.PatternHelp()}\n\nTypeScript/TSX patterns:\n{TsStructuralSearch.PatternHelp()}\n\nResource patterns (C# + XAML):\n{UnusedResources.PatternHelp()}";
     }
 
     /// <summary>check_dangling_references (TS/TSX): report imports never used, and used PascalCase identifiers that
