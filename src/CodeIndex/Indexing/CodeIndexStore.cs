@@ -660,7 +660,7 @@ internal sealed class CodeIndexStore : ICodeIndexStore
         Dictionary<string, List<string>> tsFilesByProject = new(StringComparer.Ordinal);
         foreach (SourceFileIndex f in snap.AllSourceFiles)
         {
-            if (f.Language == Language.CSharp)
+            if (f.Language is Language.CSharp or Language.Xaml)
             {
                 continue;
             }
@@ -862,7 +862,7 @@ internal sealed class CodeIndexStore : ICodeIndexStore
                 + NameSuggester.DidYouMean(fileQuery, FileNames());
         }
 
-        if (file.Language == Language.CSharp)
+        if (file.Language is Language.CSharp or Language.Xaml)
         {
             return "check_dangling_references: TypeScript/TSX only (for C# bare-name resolution use resolve_bare_name).";
         }
@@ -895,7 +895,7 @@ internal sealed class CodeIndexStore : ICodeIndexStore
             }
 
             List<string> definers = snap.AllSourceFiles
-                .Where(f => f.Language != Language.CSharp
+                .Where(f => f.Language is Language.TypeScript or Language.Scss
                     && !f.SourceFilePath.Equals(file.SourceFilePath, StringComparison.OrdinalIgnoreCase)
                     && f.Types.Any(t => t.Name == name))
                 .Select(f => f.FileName).Distinct().Take(5).ToList();

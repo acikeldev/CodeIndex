@@ -63,7 +63,7 @@ internal sealed partial class CallResolver
     {
         foreach (SourceFileIndex f in files)
         {
-            if (f.Language != Language.CSharp)
+            if (f.Language is not (Language.CSharp or Language.Xaml)) // XAML: the x:Class partial with its x:Name fields
             {
                 continue;
             }
@@ -222,6 +222,10 @@ internal sealed partial class CallResolver
         result.Sort(StringComparer.Ordinal);
         return result;
     }
+
+    /// <summary>Types declaring <paramref name="method"/> nearest to <paramref name="typeKey"/> in its hierarchy
+    /// (the type itself, else its bases) — what a call on that type binds to. Empty when none.</summary>
+    public List<string> Lookup(string typeKey, string method) => FindInHierarchy(typeKey, method, out _);
 
     /// <summary>The full key of the type declaration enclosing <paramref name="node"/>, or null at file level.</summary>
     public static string? EnclosingTypeKey(SyntaxNode node)

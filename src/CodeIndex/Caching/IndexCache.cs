@@ -22,7 +22,8 @@ public sealed class IndexCache : ICodeIndexCache
     //     Struct/Record/RecordStruct kinds; type-less files retained.
     // v5: runtime-edge plumbing — SourceFileIndex gained Registrations + FrameworkRoots; TypeInfo/MemberInfo
     //     gained RootKinds bitflags (DI/reflection/framework-root awareness). Empty until the extractor ships.
-    public const int SchemaVersion = 5;
+    // v6: .xaml files indexed (Language.Xaml): x:Class partial with x:Name fields + SourceFileIndex.XamlHooks.
+    public const int SchemaVersion = 6;
 
     private readonly IFileSystem _fileSystem;
     private readonly AtomicCacheIo _io;

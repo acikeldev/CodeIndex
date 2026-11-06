@@ -34,6 +34,11 @@ public sealed class SourceFileParser
             return null;
         }
 
+        if (csFilePath.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase))
+        {
+            return XamlParser.Parse(csFilePath, projectName, sourceText);
+        }
+
         SyntaxTree tree = CSharpSyntaxTree.ParseText(sourceText, path: csFilePath);
         CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
 

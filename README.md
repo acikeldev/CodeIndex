@@ -5,7 +5,7 @@
 results — so your coding agent spends its context window (and your pay-as-you-go budget) on *thinking*, not on
 grepping and re-reading source.
 
-It indexes **C#** (Roslyn) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **22 tools** to
+It indexes **C#** (Roslyn, plus the **XAML** half of WPF code-behind) and **TypeScript / TSX / SCSS** (tree-sitter) in one process and serves **22 tools** to
 any MCP client (Claude Code, Cursor, Copilot, …). No cloud, no embeddings, no API keys — everything runs on your
 machine.
 

@@ -87,6 +87,20 @@ internal static class CallHierarchy
             }
         });
 
+        // Handlers wired in XAML (Click="Save_Click") have the markup as their only caller.
+        foreach (XamlWiring w in XamlWirings(resolver, files, project, name))
+        {
+            if (typeFilter is not null && !Reaches(resolver, roots, w.Targets))
+            {
+                continue;
+            }
+
+            FileReader.ReadResult read = reader.ReadFileLines(w.File.SourceFilePath);
+            string snippet = read.Success && w.Hook.Line - 1 < read.Lines!.Length ? Output.ClipLine(read.Lines[w.Hook.Line - 1].Trim(), max: 140) : string.Empty;
+            string target = labelTargets ? " → " + string.Join(" | ", w.Targets.Select(t => $"{resolver.TypeName(t)}.{name}")) : string.Empty;
+            bag.Add(new CallerHit(w.File.ProjectName, w.File.SourceFilePath, w.File.FileName, w.Hook.Line, $"(XAML) {w.Hook.Element}.{w.Hook.Attribute}{target}", snippet, false));
+        }
+
         string note = labelTargets
             ? $"{definers.Count} types declare '{name}' ({string.Join(", ", definers.Take(4).Select(resolver.TypeName))}{(definers.Count > 4 ? ", …" : string.Empty)}) — each resolved call is labelled with its target; pass Type.{name} to keep one."
             : string.Empty;
@@ -221,7 +235,7 @@ internal static class CallHierarchy
 
         Func<TraceNode, List<TraceNode>> childrenOf = callees
             ? CalleeWalker(resolver, reader)
-            : CallerWalker(resolver, reader, candidates);
+            : CallerWalker(resolver, reader, candidates, XamlWirings(resolver, files, project, null).ToList());
 
         StringBuilder sb = new();
         sb.AppendLine($"trace_calls: {(callees ? "callees" : "callers")} of {method} (depth ≤{maxDepth}, ≤{maxNodes} nodes){Scope(project)}");
@@ -374,7 +388,7 @@ internal static class CallHierarchy
             string method = node.Site.Member.Name;
             Dictionary<string, TraceNode> children = new(StringComparer.Ordinal);
             bool hasBody = false;
-            foreach (SourceFileIndex f in resolver.DeclaringFiles(typeKey))
+            foreach (SourceFileIndex f in resolver.DeclaringFiles(typeKey).Where(f => f.Language == Language.CSharp))
             {
                 if (ParseFile(reader, f) is not (CompilationUnitSyntax root, _))
                 {
@@ -440,8 +454,12 @@ internal static class CallHierarchy
 
     private readonly record struct CallEdge(CallResolution Resolution, string? CallerType, string CallerMember);
 
-    private static Func<TraceNode, List<TraceNode>> CallerWalker(CallResolver resolver, FileReader reader, List<SourceFileIndex> candidates)
+    private static Func<TraceNode, List<TraceNode>> CallerWalker(CallResolver resolver, FileReader reader, List<SourceFileIndex> candidates, List<XamlWiring> wirings)
     {
+        Dictionary<string, List<XamlWiring>> wiringsByName = wirings
+            .GroupBy(w => w.Hook.Member, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+
         // Inverse graph — one parse pass: invoked method name -> (binding, enclosing caller).
         ConcurrentBag<CallEdge> edges = new();
         Parallel.ForEach(candidates, f =>
@@ -474,14 +492,24 @@ internal static class CallHierarchy
 
         return node =>
         {
-            if (node.Site is null || !byName.TryGetValue(node.Site.Member.Name, out List<CallEdge>? hits))
+            if (node.Site is null)
             {
                 return [];
             }
 
             string typeKey = node.Site.TypeKey;
             Dictionary<string, TraceNode> callers = new(StringComparer.Ordinal);
-            foreach (CallEdge e in hits)
+            foreach (XamlWiring w in wiringsByName.GetValueOrDefault(node.Site.Member.Name) ?? [])
+            {
+                if (w.Targets.Any(t => resolver.IsOrDerivesFrom(typeKey, t)))
+                {
+                    TraceNode xaml = new(NodeKind.NonMethodCaller, $"xaml:{w.File.SourceFilePath}:{w.Hook.Line}",
+                        $"{w.File.FileName}:{w.Hook.Line}  <{w.Hook.Element} {w.Hook.Attribute}=\"{w.Hook.Member}\">", null, "XAML wiring");
+                    callers.TryAdd(xaml.Id, xaml);
+                }
+            }
+
+            foreach (CallEdge e in byName.GetValueOrDefault(node.Site.Member.Name) ?? [])
             {
                 string? via = e.Resolution.Targets.FirstOrDefault(t => resolver.IsOrDerivesFrom(typeKey, t));
                 if (via is null)
@@ -658,6 +686,37 @@ internal static class CallHierarchy
     // interface or base reaches the implementation/override.
     private static bool Reaches(CallResolver resolver, List<string> roots, IReadOnlyList<string> targets) =>
         roots.Any(root => targets.Any(t => resolver.IsOrDerivesFrom(root, t)));
+
+    private readonly record struct XamlWiring(SourceFileIndex File, XamlHook Hook, List<string> Targets);
+
+    // XAML attributes whose value names a method on the file's x:Class type (or its bases): event wirings.
+    // `name` null = all of them. An identifier-valued attribute that names no such method (an enum value) is dropped.
+    private static IEnumerable<XamlWiring> XamlWirings(CallResolver resolver, IReadOnlyList<SourceFileIndex> files, string? project, string? name)
+    {
+        foreach (SourceFileIndex f in files)
+        {
+            if (f.Language != Language.Xaml || f.XamlHooks is null || f.Types.Count == 0
+                || (project is not null && !f.ProjectName.Equals(project, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            string typeKey = CallResolver.Key(f.Types[0].Namespace, f.Types[0].Name);
+            foreach (XamlHook h in f.XamlHooks)
+            {
+                if (name is not null && h.Member != name)
+                {
+                    continue;
+                }
+
+                List<string> targets = resolver.Lookup(typeKey, h.Member);
+                if (targets.Count > 0)
+                {
+                    yield return new XamlWiring(f, h, targets);
+                }
+            }
+        }
+    }
 
     private static List<SourceFileIndex> Candidates(IReadOnlyList<SourceFileIndex> files, string? project) => files
         .Where(f => f.Language == Language.CSharp)
